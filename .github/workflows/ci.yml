@@ -1,0 +1,29 @@
+name: CI
+
+# PR / branch checks. Kept separate from the publish workflows: this never
+# uploads a release or catalog, it only proves the package builds and validates.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Byte-compile
+        run: python3 -m py_compile server.py server_test.py scripts/package_tutti_app.py
+
+      - name: Unit tests
+        run: python3 server_test.py
+
+      - name: Package + validate (manifest, CLI, i18n parity, theming, runtime rules)
+        run: python3 scripts/package_tutti_app.py

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "tutti.app.cli.v1",
+  "scope": "design-review",
+  "description": "Run AI design reviews and query the review service status so other Tutti apps and agents can reuse design critique as a capability.",
+  "documentation": {
+    "file": "COMMANDS.md"
+  },
+  "commands": [
+    {
+      "path": ["review"],
+      "summary": "Review a design and return structured scores",
+      "description": "Run a six-dimension AI design review on a website URL or a local image file and return a structured JSON report (overall score, per-dimension scores, and a prioritized fix list). Provide either url or image-path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Website URL to review. Provide either url or image-path."
+          },
+          "image-path": {
+            "type": "string",
+            "description": "Absolute path to a local screenshot/design image to review. Provide either url or image-path."
+          },
+          "strictness": {
+            "type": "string",
+            "description": "Scoring strictness: relaxed | standard | strict (default standard). Chinese 宽松 | 标准 | 严苛 are also accepted."
+          },
+          "locale": {
+            "type": "string",
+            "description": "Output language for the report, e.g. zh-CN or en. Defaults to zh-CN."
+          }
+        }
+      },
+      "output": {
+        "defaultMode": "json",
+        "json": true
+      },
+      "handler": {
+        "kind": "http",
+        "method": "POST",
+        "path": "/tutti/cli/review",
+        "timeoutMs": 290000
+      }
+    },
+    {
+      "path": ["status"],
+      "summary": "Report design-review service status",
+      "description": "Return the app id, version, configured agent provider and its availability, so callers can discover the capability and check readiness before invoking review.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "output": {
+        "defaultMode": "json",
+        "json": true
+      },
+      "handler": {
+        "kind": "http",
+        "method": "POST",
+        "path": "/tutti/cli/status",
+        "timeoutMs": 20000
+      }
+    }
+  ]
+}

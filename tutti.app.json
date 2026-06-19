@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "tutti.app.manifest.v1",
+  "appId": "design-review",
+  "version": "0.1.0",
+  "name": "设计评审",
+  "description": "评审网站或截图的设计，从六个维度打分，并生成可在图上标注、可直接照做的改进清单。",
+  "icon": {
+    "type": "asset",
+    "src": "icon.svg"
+  },
+  "runtime": {
+    "bootstrap": "bootstrap.sh",
+    "healthcheckPath": "/healthz"
+  },
+  "cli": {
+    "manifest": "tutti.cli.json"
+  },
+  "window": {
+    "minimizeBehavior": "keep-mounted",
+    "minWidth": 860,
+    "minHeight": 560
+  },
+  "author": {
+    "name": "Tutti"
+  },
+  "tags": ["design", "review", "critique", "workspace", "ai"],
+  "localizationInfo": {
+    "defaultLocale": "zh-CN",
+    "additionalLocales": [
+      {
+        "locale": "en",
+        "file": "locales/en/manifest.json"
+      }
+    ]
+  }
+}

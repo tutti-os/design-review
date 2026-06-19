@@ -1,0 +1,44 @@
+name: Publish Tutti App Staging
+
+# Publishes a build-addressed design-review release to the staging Tutti App
+# Center bucket and (optionally) refreshes the staging catalog. No semver bump
+# or release tag — use this to verify a release before promoting to production.
+#
+# Prerequisites: same OIDC role + TUTTI_APP_RELEASES_* variables as the
+# production workflow. See publish-tutti-app.yml for details.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_catalog:
+        description: Whether to publish the staging App Center catalog after this release.
+        required: false
+        type: boolean
+        default: false
+      catalog_only:
+        description: Whether to skip app release upload and only publish the existing latest release to staging catalog.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@main
+    with:
+      app_id: design-review
+      package_command: python3 scripts/package_tutti_app.py
+      package_dir: build/tutti-app/package
+      icon_path: build/tutti-app/package/icon.svg
+      runner: ubuntu-latest
+      publish_catalog: ${{ inputs.publish_catalog }}
+      catalog_only: ${{ inputs.catalog_only }}
+      aws_region: ${{ vars.TUTTI_APP_RELEASES_STAGING_AWS_REGION || vars.TUTTI_APP_RELEASES_AWS_REGION }}
+      aws_role_arn: ${{ vars.TUTTI_APP_RELEASES_STAGING_AWS_ROLE_ARN || vars.TUTTI_APP_RELEASES_AWS_ROLE_ARN }}
+      s3_bucket: ${{ vars.TUTTI_APP_RELEASES_STAGING_S3_BUCKET || vars.TUTTI_APP_RELEASES_S3_BUCKET }}
+      s3_prefix: ${{ vars.TUTTI_APP_RELEASES_STAGING_S3_PREFIX || 'tutti-app-releases-staging' }}
+      release_assets_base_url: ${{ vars.TUTTI_APP_RELEASES_STAGING_BASE_URL || vars.TUTTI_APP_RELEASES_BASE_URL }}
+      catalog_cloudfront_distribution_id: ${{ vars.TUTTI_APP_RELEASES_STAGING_CLOUDFRONT_DISTRIBUTION_ID || vars.TUTTI_APP_RELEASES_CLOUDFRONT_DISTRIBUTION_ID || '' }}

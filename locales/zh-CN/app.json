@@ -1,0 +1,103 @@
+{
+  "brand": {
+    "name": "挑刺",
+    "subtitle": "AI Design Critique"
+  },
+  "header": {
+    "reviewNext": "↺ 评审下一个"
+  },
+  "input": {
+    "badge": "你的随身 AI 设计总监",
+    "headlineLead": "把设计交给 AI 总监，",
+    "headlineHighlight": "挑出每一根刺",
+    "headlineTail": "。",
+    "tagline": "粘贴网站链接，或丢一张截图进来。六个维度专业打分，附一份可以直接照做的改进清单。",
+    "tabUrl": "🔗 链接",
+    "tabImg": "🖼 截图",
+    "urlPlaceholder": "https://your-design.com",
+    "urlHintS1": "输入链接后会",
+    "urlHintB1": "先自动给网页截图",
+    "urlHintS2": "，再基于截图做视觉评审并支持在图上标注。若网页需登录或截图失败，会自动退回纯文字评审——这种情况改用",
+    "urlHintB2": "上传截图",
+    "urlHintS3": "更准。",
+    "dropTitle": "把截图拖进来，或点击选择",
+    "dropHint": "PNG / JPG · 整页截图或单个界面都行",
+    "replaceImage": "换一张",
+    "analyze": "开始挑刺 →",
+    "promptToggleShow": "查看发送给评审 Agent 的提示词 ▾",
+    "promptToggleHide": "收起提示词 ▴",
+    "promptHint": "这是点击后发给评审 Agent 的完整指令（已嵌入严格的输出格式约束）。接入你们自己的评审 Agent 时，把这段连同链接 / 图片发过去即可。",
+    "promptLabel": "评审 Agent 提示词",
+    "copyDefault": "📋 复制提示词",
+    "copyDone": "✓ 已复制",
+    "dimsTitle": "评审的六个维度"
+  },
+  "dims": [
+    "视觉层次/排版",
+    "配色与对比",
+    "一致性",
+    "可用性/易用性",
+    "品牌契合度",
+    "转化/CTA 效果"
+  ],
+  "analyzing": {
+    "title": "总监正在审视…",
+    "shooting": "正在打开网页并截图…",
+    "steps": [
+      "解析视觉层次与排版骨架…",
+      "逐一比对配色与对比度…",
+      "检查组件与节奏的一致性…",
+      "站在用户视角走一遍流程…",
+      "衡量与品牌调性的契合…",
+      "顺着转化路径找断点…"
+    ]
+  },
+  "error": {
+    "title": "评审没跑通",
+    "body": "AI 没能返回有效结果，多半是网络或解析问题。再试一次通常就好了。",
+    "retry": "再试一次"
+  },
+  "result": {
+    "outOf": "/ 100",
+    "gradeExcellent": "优秀 · 可以骄傲",
+    "gradeGood": "良好 · 还能更好",
+    "gradePass": "及格 · 有明显短板",
+    "gradeRework": "需返工 · 问题不少",
+    "sourceJson": "外部 Agent 评审",
+    "sourceUrlFallback": "链接评审",
+    "sourceImgFallback": "截图评审",
+    "suggestionsTitle": "改进清单",
+    "suggestionsSubtitle": "按优先级排好了，从上往下照着改。",
+    "reviewAnother": "↺ 再评审一个"
+  },
+  "canvas": {
+    "title": "在设计上标注",
+    "subtitle": "彩色框是 Agent 标出的问题；自己框选区域写评论，再发给 Agent 要针对性建议。",
+    "annotateOn": "✓ 标注中 · 在图上拖拽框选",
+    "annotateOff": "✏️ 添加标注",
+    "markersLoading": "正在定位图上的问题区域…",
+    "markersFailedText": "标注定位超时或失败。",
+    "retry": "↻ 重试",
+    "agentMarkersTitle": "Agent 标出的问题",
+    "hideAll": "隐藏全部",
+    "showAll": "显示全部",
+    "markerHelp": "点任意一条，可在左图单独显示 / 隐藏它的框。",
+    "markerToggleTitle": "点击显示 / 隐藏这个框",
+    "myComments": "我的评论",
+    "userBadge": "你",
+    "userRegionLabel": "你 {n} 框选区域",
+    "delete": "删除",
+    "commentPlaceholder": "这里有什么问题？想让 Agent 怎么改？",
+    "sendDefault": "发送给 Agent →",
+    "sendAgain": "↻ 重新分析",
+    "sending": "分析中…",
+    "sendError": "⚠️ 分析失败，请重试。",
+    "agentReply": "Agent 建议",
+    "noCommentsS1": "还没有评论。点右上角 ",
+    "noCommentsB1": "✏️ 添加标注",
+    "noCommentsS2": "，在图上拖出一个框，写下你的问题，再发给 Agent。"
+  },
+  "agent": {
+    "callFailed": "评审 Agent 调用失败。"
+  }
+}

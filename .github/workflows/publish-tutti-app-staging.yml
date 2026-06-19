@@ -27,7 +27,8 @@ permissions:
 
 jobs:
   publish:
-    uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@main
+    # Pinned to tutti-os/tutti@main as of 2026-06-19; bump this SHA when the shared release workflow updates.
+    uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@f2662bf3a8735affbec52621d390644e2f4db26b
     with:
       app_id: design-review
       package_command: python3 scripts/package_tutti_app.py

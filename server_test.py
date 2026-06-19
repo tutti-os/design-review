@@ -490,6 +490,123 @@ class ReviewServerTest(unittest.TestCase):
             self.assertIn("\"defaultLocale\"", html)
             self.assertNotIn("<!--__TUTTI_I18N__-->", html)
 
+    def test_validate_image_path_accepts_image_under_runtime_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            img = module.RUNTIME_DIR / "shot.png"
+            img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+
+            self.assertEqual(module.validate_image_path(str(img)), str(img.resolve()))
+
+    def test_validate_image_path_rejects_path_outside_allowed_roots(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            outside = Path(temp_dir) / "outside.png"
+            outside.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+
+            with self.assertRaises(module.BadRequest):
+                module.validate_image_path(str(outside))
+
+    def test_validate_image_path_rejects_non_image_content(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            fake = module.RUNTIME_DIR / "notreally.png"
+            fake.write_bytes(b"this is plainly not an image")
+
+            with self.assertRaises(module.BadRequest):
+                module.validate_image_path(str(fake))
+
+    def test_validate_image_path_rejects_disallowed_extension(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            secret = module.RUNTIME_DIR / "secret.txt"
+            secret.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+
+            with self.assertRaises(module.BadRequest):
+                module.validate_image_path(str(secret))
+
+    def test_validate_image_path_rejects_symlink(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            real = module.DATA_DIR / "real.png"
+            real.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+            link = module.RUNTIME_DIR / "link.png"
+            try:
+                link.symlink_to(real)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks not supported on this platform")
+
+            with self.assertRaises(module.BadRequest):
+                module.validate_image_path(str(link))
+
+    def test_cli_review_keeps_wait_within_manifest_budget(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            captured = {}
+
+            def fake_wait(session_id, timeout_seconds=300, accepts_text=None):
+                captured["timeout"] = timeout_seconds
+                return REVIEW_JSON
+
+            with (
+                mock.patch.object(module, "start_agent_session", return_value={"id": "s1", "provider": "claude-code"}),
+                mock.patch.object(module, "wait_for_agent_text", side_effect=fake_wait),
+            ):
+                module.cli_review({"url": "https://example.com", "locale": "zh-CN"})
+
+            self.assertIn("timeout", captured)
+            self.assertGreater(captured["timeout"], 0)
+            self.assertLessEqual(captured["timeout"], module.CLI_REVIEW_BUDGET_SECONDS)
+
+    def test_cli_status_not_ok_when_provider_unavailable(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+
+            def fake_run_tutti_cli(args, timeout=60):
+                if args == ["agent", "providers"]:
+                    return {
+                        "defaultProvider": "claude-code",
+                        "providers": [{"provider": "claude-code", "status": "unavailable"}],
+                    }
+                raise AssertionError(f"unexpected CLI args: {args!r}")
+
+            with mock.patch.object(module, "run_tutti_cli", fake_run_tutti_cli):
+                output = module.cli_status({})
+
+            self.assertFalse(output["value"]["ok"])
+            self.assertFalse(output["value"]["providerAvailable"])
+            self.assertTrue(output["value"]["tuttiCliConfigured"])
+            self.assertIn("error", output["value"])
+
+    def test_cli_status_not_ok_when_cli_not_configured(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+
+            with mock.patch.dict(module.os.environ, {"TUTTI_CLI": ""}):
+                output = module.cli_status({})
+
+            self.assertFalse(output["value"]["ok"])
+            self.assertFalse(output["value"]["tuttiCliConfigured"])
+            self.assertIn("error", output["value"])
+
+    def test_handle_cli_wraps_error_in_contract_error_body(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+            handler = FakeRequestHandler()
+            handler.headers = {"Content-Length": "0"}
+            handler.rfile = BytesIO(b"")
+
+            def failing(_payload):
+                raise module.BadRequest("Provide either url or image-path.")
+
+            module.ReviewHandler.handle_cli(handler, failing, "fallback")
+
+            self.assertEqual(handler.status, 400)
+            body = handler.body_json()
+            self.assertNotIn("kind", body)
+            self.assertEqual(body["error"]["code"], "invalid_input")
+            self.assertIn("url or image-path", body["error"]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

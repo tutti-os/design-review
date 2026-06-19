@@ -102,7 +102,10 @@
         <!-- URL mode -->
         <sc-if value="{{ isUrl }}" hint-placeholder-val="{{ true }}">
           <input value="{{ url }}" onInput="{{ onUrl }}" placeholder="{{ urlPlaceholder }}" style="width:100%; font-family:'Space Grotesk'; font-size:17px; padding:15px 18px; border:2px solid var(--ink); border-radius:13px; background:var(--input-bg); outline:none; color:var(--ink);">
-          <div style="display:flex; gap:8px; align-items:flex-start; margin-top:11px; font-size:12.5px; line-height:1.5; color:var(--muted);">
+          <button onClick="{{ toggleShotConsent }}" style="display:flex; gap:8px; align-items:flex-start; width:100%; text-align:left; margin-top:11px; padding:0; background:none; border:none; cursor:pointer; font-family:'Space Grotesk'; font-size:12.5px; line-height:1.5; color:var(--text-2);">
+            <span style="flex-shrink:0; font-size:14px;">{{ shotConsentBox }}</span><span>{{ shotConsentLabel }}</span>
+          </button>
+          <div style="display:flex; gap:8px; align-items:flex-start; margin-top:9px; font-size:12.5px; line-height:1.5; color:var(--muted);">
             <span style="flex-shrink:0;">ℹ️</span><span>{{ urlHintS1 }}<b style="color:var(--text-2);">{{ urlHintB1 }}</b>{{ urlHintS2 }}<b style="color:var(--text-2);">{{ urlHintB2 }}</b>{{ urlHintS3 }}</span>
           </div>
         </sc-if>
@@ -369,6 +372,7 @@ class Component extends DCLogic {
     this.state = {
       mode: 'url',
       url: '',
+      shotConsent: false,   // opt-in before any URL leaves the browser to the 3rd-party screenshot service
       imageData: null,
       imageMediaType: null,
       imagePreview: null,
@@ -793,8 +797,40 @@ this.subjectPlaceholder()
   };
 
   // ---- URL → 自动截图（第三方服务，可随时替换为你们自己的截图后端）----
+  // 隐私：URL 会发到第三方 api.microlink.io 截图，因此需用户显式勾选 opt-in，且永不外发
+  // localhost / 内网 / 带凭据或 token 的链接（见 isUnsafeShotUrl）。接自己的截图后端时改这里。
   SHOT_SERVICE = (url) => 'https://api.microlink.io/?url=' + encodeURIComponent(url) + '&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1280&viewport.height=900';
   normalizeUrl = (raw) => { let u = String(raw||'').trim(); if(u && !/^https?:\/\//i.test(u)) u = 'https://' + u; return u; };
+  toggleShotConsent = () => this.setState(s => ({ shotConsent: !s.shotConsent }));
+  // Refuse to send anything that could leak: non-http(s), embedded credentials,
+  // localhost / private / link-local / CGNAT / .local etc. hosts, bare single-label
+  // hosts, or URLs carrying token-like query/hash material.
+  isUnsafeShotUrl = (raw) => {
+    let u;
+    try { u = new URL(raw); } catch(e){ return true; }
+    if(u.protocol !== 'http:' && u.protocol !== 'https:') return true;
+    if(u.username || u.password) return true;
+    const host = String(u.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+    if(!host) return true;
+    if(host === 'localhost' || host.endsWith('.localhost')) return true;
+    if(/\.(local|internal|intranet|lan|home|corp)$/.test(host)) return true;
+    if(host.indexOf('.') === -1 && host.indexOf(':') === -1) return true; // bare single-label host
+    const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if(m){
+      const o = m.slice(1).map(Number);
+      if(o.some(n => n > 255)) return true;
+      if(o[0] === 0 || o[0] === 127 || o[0] === 10) return true;
+      if(o[0] === 192 && o[1] === 168) return true;
+      if(o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
+      if(o[0] === 169 && o[1] === 254) return true;        // link-local
+      if(o[0] === 100 && o[1] >= 64 && o[1] <= 127) return true; // CGNAT
+    }
+    if(host === '::1' || host === '::') return true;
+    if(/^(fe80|fc|fd)/.test(host)) return true;            // IPv6 link-local / ULA
+    const cred = /(^|[?&#])([^=&#]*(token|secret|password|passwd|pwd|api[_-]?key|access[_-]?key|apikey|auth|session|sig|signature|credential|key))=/i;
+    if(cred.test(u.search) || cred.test(u.hash)) return true;
+    return false;
+  };
   captureUrl = async (url) => {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 28000);
@@ -836,14 +872,20 @@ this.subjectPlaceholder()
       if(this.state.mode==='image'){
         imgForReview = this.state.imagePreview;
       } else {
-        this.setState({ shooting:true });
         const norm = this.normalizeUrl(this.state.url);
-        try {
-          const shot = await this.captureUrl(norm);
-          imgForReview = shot.dataUrl;
-          this.setState({ imagePreview: shot.dataUrl, imageData: shot.dataUrl.split(',')[1], imageMediaType: shot.mediaType, fileName: norm });
-        } catch(shotErr){ imgForReview = null; }
-        this.setState({ shooting:false });
+        // Only hit the third-party screenshot service for public URLs the user opted into;
+        // otherwise review from the link text alone so nothing sensitive leaves the browser.
+        if(this.state.shotConsent && !this.isUnsafeShotUrl(norm)){
+          this.setState({ shooting:true });
+          try {
+            const shot = await this.captureUrl(norm);
+            imgForReview = shot.dataUrl;
+            this.setState({ imagePreview: shot.dataUrl, imageData: shot.dataUrl.split(',')[1], imageMediaType: shot.mediaType, fileName: norm });
+          } catch(shotErr){ imgForReview = null; }
+          this.setState({ shooting:false });
+        } else {
+          imgForReview = null;
+        }
       }
       const linkText = this.normalizeUrl(this.state.url);
 
@@ -930,6 +972,7 @@ this.subjectPlaceholder()
     this.setState({
       status:'input',
       url:'',
+      shotConsent:false,
       imageData:null,
       imageMediaType:null,
       imagePreview:null,
@@ -999,6 +1042,9 @@ this.subjectPlaceholder()
       tabUrl: T('input.tabUrl'),
       tabImg: T('input.tabImg'),
       urlPlaceholder: T('input.urlPlaceholder'),
+      shotConsentBox: s.shotConsent ? '☑' : '☐',
+      shotConsentLabel: T('input.shotConsentLabel'),
+      toggleShotConsent: this.toggleShotConsent,
       urlHintS1: T('input.urlHintS1'), urlHintB1: T('input.urlHintB1'), urlHintS2: T('input.urlHintS2'), urlHintB2: T('input.urlHintB2'), urlHintS3: T('input.urlHintS3'),
       dropTitle: T('input.dropTitle'),
       dropHint: T('input.dropHint'),

@@ -22,6 +22,15 @@ LOCALES_DIR = PACKAGE_DIR / "locales"
 WORKSPACE_ROOT = os.environ.get("TUTTI_WORKSPACE_ROOT", "").strip()
 DEFAULT_PROVIDER = "claude-code"
 I18N_PLACEHOLDER = "<!--__TUTTI_I18N__-->"
+# `review --image-path` accepts a caller-supplied local path, so constrain it: a
+# known image type (extension + magic bytes), a size ceiling, and a location under
+# the workspace/runtime/data roots (no symlinks) before the agent is told to read it.
+ALLOWED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
+# The review handler's manifest timeout is 290s. Keep the whole operation (agent
+# start + wait) under that with margin so the app never outlives the Tutti router's
+# budget for the call — otherwise the caller times out while the app keeps waiting.
+CLI_REVIEW_BUDGET_SECONDS = 280
 
 
 def _load_manifest():
@@ -438,6 +447,11 @@ def write_json(handler, status, payload):
     handler.wfile.write(data)
 
 
+def cli_error_payload(message, code):
+    """CLI error body per the Tutti CLI contract: {"error": {"code", "message"}}."""
+    return {"error": {"code": code, "message": message}}
+
+
 def safe_static_path(request_path):
     relative_path = unquote(request_path.split("?", 1)[0]).lstrip("/") or "index.html"
     target = (STATIC_DIR / relative_path).resolve()
@@ -505,7 +519,13 @@ def build_review_prompt(url="", image_path="", strictness="standard", locale="zh
         target = (
             f"Local image file to review: {image_path}\nRead this local image file and review it visually."
             if image_path
-            else f"Website link: {url}\n(You cannot browse it live; review from what you know about this site/category.)"
+            else (
+                f"Website link: {url}\n"
+                "First actually open this link with your available browsing / web-fetch tools and "
+                "review the real page you retrieve; do not score from memory. If you cannot reach it "
+                "(intranet, localhost, login-gated, or unreachable), do not fabricate scores: set "
+                '"overall" to 0 and say so in "summary".'
+            )
         )
         return "\n".join([
             "# Role",
@@ -543,7 +563,11 @@ def build_review_prompt(url="", image_path="", strictness="standard", locale="zh
     target = (
         f"待评审设计的本地图片文件：{image_path}\n请读取该本地图片文件并基于图片进行视觉评审。"
         if image_path
-        else f"网站链接：{url}\n（你无法实时访问该网站，请基于既有了解评审。）"
+        else (
+            f"网站链接：{url}\n"
+            "请先用你可用的浏览/网页抓取工具实际打开该链接，并以你真实获取到的页面内容为准进行评审，不要凭记忆臆测。"
+            "若确实无法访问（内网、localhost、需登录或不可达），不要编造分数：将 overall 记为 0，并在 summary 中说明无法访问。"
+        )
     )
     return "\n".join([
         "# 角色",
@@ -597,6 +621,71 @@ def cli_command_input(payload):
     return payload
 
 
+def allowed_image_roots():
+    """Directories a caller-supplied ``image-path`` may live under (resolved)."""
+    roots = [RUNTIME_DIR, DATA_DIR]
+    if WORKSPACE_ROOT:
+        roots.insert(0, Path(WORKSPACE_ROOT))
+    resolved = []
+    for root in roots:
+        try:
+            resolved.append(root.resolve())
+        except OSError:
+            continue
+    return resolved
+
+
+def looks_like_image(path):
+    """Sniff magic bytes so a non-image renamed to .png is rejected."""
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(12)
+    except OSError:
+        return False
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return True
+    if header.startswith(b"\xff\xd8\xff"):
+        return True
+    if header[:6] in (b"GIF87a", b"GIF89a"):
+        return True
+    if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return True
+    return False
+
+
+def validate_image_path(image_path):
+    """Validate a caller-supplied image path and return its resolved location.
+
+    The agent is instructed to read this file, so an unconstrained path would let
+    any caller exfiltrate arbitrary local files. Confine it to the workspace /
+    runtime / data roots, reject symlinks, and require a real image within limits.
+    """
+    candidate = Path(image_path)
+    if not candidate.is_absolute():
+        raise BadRequest("image-path must be an absolute path.")
+    if candidate.suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
+        raise BadRequest("image-path must be a PNG/JPEG/WebP/GIF image.")
+    if candidate.is_symlink():
+        raise BadRequest("image-path must not be a symlink.")
+    try:
+        real = candidate.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise BadRequest(f"image-path not found: {image_path}") from exc
+    if not real.is_file():
+        raise BadRequest(f"image-path not found: {image_path}")
+    roots = allowed_image_roots()
+    if not any(real == root or root in real.parents for root in roots):
+        raise BadRequest("image-path is outside the allowed workspace/runtime/data directories.")
+    size = real.stat().st_size
+    if size <= 0:
+        raise BadRequest("image-path is empty.")
+    if size > MAX_IMAGE_BYTES:
+        raise BadRequest("image-path is too large (max 20 MiB).")
+    if not looks_like_image(real):
+        raise BadRequest("image-path is not a valid image file.")
+    return str(real)
+
+
 def cli_review(payload):
     payload = cli_command_input(payload)
     if not isinstance(payload, dict):
@@ -607,11 +696,15 @@ def cli_review(payload):
     locale = normalize_locale(payload.get("locale"))
     if not url and not image_path:
         raise BadRequest("Provide either url or image-path.")
-    if image_path and not Path(image_path).is_file():
-        raise BadRequest(f"image-path not found: {image_path}")
+    if image_path:
+        image_path = validate_image_path(image_path)
     prompt = build_review_prompt(url=url, image_path=image_path, strictness=strictness, locale=locale)
+    deadline = time.monotonic() + CLI_REVIEW_BUDGET_SECONDS
     session = start_agent_session(prompt)
-    text = wait_for_agent_text(session["id"], timeout_seconds=280, accepts_text=is_json_review_text)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise AgentTimeout("等待评审 Agent 返回结果超时。")
+    text = wait_for_agent_text(session["id"], timeout_seconds=remaining, accepts_text=is_json_review_text)
     if not is_json_review_text(text):
         raise RuntimeError(invalid_completion_message("review_json"))
     review = json.loads(extract_json_text(text))
@@ -620,32 +713,42 @@ def cli_review(payload):
 
 def cli_status(payload=None):
     cli_command_input(payload)  # status takes no input; unwrap envelope defensively
+    cli_configured = bool(os.environ.get("TUTTI_CLI", "").strip())
     provider = ""
     available = False
-    try:
-        result = run_tutti_cli(["agent", "providers"], timeout=20)
-        provider = clean_optional_string(result.get("defaultProvider"))
-        providers = result.get("providers") if isinstance(result.get("providers"), list) else []
-        ready = {
-            clean_optional_string(item.get("provider"))
-            for item in providers
-            if clean_optional_string(item.get("status")) in {"ready", "configured", "available"}
-        }
-        if not provider:
-            provider = default_agent_provider()
-        available = provider in ready
-    except Exception:
-        provider = DEFAULT_PROVIDER
-    return {
-        "kind": "json",
-        "value": {
-            "appId": APP_ID,
-            "version": APP_VERSION,
-            "provider": provider or DEFAULT_PROVIDER,
-            "providerAvailable": available,
-            "ok": True,
-        },
+    error = ""
+    if not cli_configured:
+        error = "TUTTI_CLI is not configured; the review agent cannot be reached."
+    else:
+        try:
+            result = run_tutti_cli(["agent", "providers"], timeout=20)
+            provider = clean_optional_string(result.get("defaultProvider"))
+            providers = result.get("providers") if isinstance(result.get("providers"), list) else []
+            ready = {
+                clean_optional_string(item.get("provider"))
+                for item in providers
+                if clean_optional_string(item.get("status")) in {"ready", "configured", "available"}
+            }
+            if not provider:
+                provider = default_agent_provider()
+            available = provider in ready
+            if not available:
+                error = f"agent provider '{provider or DEFAULT_PROVIDER}' is not ready."
+        except Exception as exc:
+            error = clean_optional_string(str(exc)) or "failed to query agent providers."
+    # ``ok`` must mean "review can run", so it reflects real readiness, not just that
+    # the handler responded.
+    value = {
+        "appId": APP_ID,
+        "version": APP_VERSION,
+        "provider": provider or DEFAULT_PROVIDER,
+        "tuttiCliConfigured": cli_configured,
+        "providerAvailable": available,
+        "ok": cli_configured and available,
     }
+    if error:
+        value["error"] = error
+    return {"kind": "json", "value": value}
 
 
 def load_app_i18n():
@@ -698,10 +801,10 @@ class ReviewHandler(BaseHTTPRequestHandler):
             self.handle_json(complete_payload, read_json_body, "评审服务异常。")
             return
         if self.path == "/tutti/cli/review":
-            self.handle_json(cli_review, read_json_body_optional, "design-review review failed.")
+            self.handle_cli(cli_review, "design-review review failed.")
             return
         if self.path == "/tutti/cli/status":
-            self.handle_json(cli_status, read_json_body_optional, "design-review status failed.")
+            self.handle_cli(cli_status, "design-review status failed.")
             return
         write_json(self, 404, {"error": "Not found"})
 
@@ -714,6 +817,19 @@ class ReviewHandler(BaseHTTPRequestHandler):
             write_json(self, 504, {"error": str(exc)})
         except Exception as exc:
             write_json(self, 500, {"error": str(exc) or fallback_error})
+
+    def handle_cli(self, action, fallback_error):
+        # CLI handlers follow the Tutti CLI contract: errors are a non-2xx status with
+        # an {"error": {"code", "message"}} body (Tutti surfaces error.message), never a
+        # bare {"error": "<string>"}, so machine callers can parse failures uniformly.
+        try:
+            write_json(self, 200, action(read_json_body_optional(self)))
+        except BadRequest as exc:
+            write_json(self, 400, cli_error_payload(str(exc) or fallback_error, "invalid_input"))
+        except AgentTimeout as exc:
+            write_json(self, 504, cli_error_payload(str(exc) or fallback_error, "timeout"))
+        except Exception as exc:
+            write_json(self, 500, cli_error_payload(str(exc) or fallback_error, "internal_error"))
 
     def serve_static(self):
         target = safe_static_path(self.path)

@@ -60,15 +60,19 @@ The server uses only these environment variables:
 No durable data is written today; the package directory is never written to.
 Storage stays inside the `TUTTI_APP_*` directories above — never the package dir.
 
+`bootstrap.sh` hard-requires only the runtime-contract variables
+(`TUTTI_APP_PACKAGE_DIR` / `HOST` / `PORT` / `RUNTIME_DIR` / `DATA_DIR` / `LOG_DIR`
+/ `PYTHON`). The app id is read from `tutti.app.json`, and workspace identity and
+`TUTTI_CLI` are optional / resolved at call time, so the app still boots when only
+the contract variables are injected.
+
 Local run (outside Tutti):
 
 ```sh
 RUN="$(mktemp -d)"
 TUTTI_APP_PACKAGE_DIR="$PWD" TUTTI_APP_HOST=127.0.0.1 TUTTI_APP_PORT=8799 \
-TUTTI_APP_BASE_URL=http://127.0.0.1:8799 \
 TUTTI_APP_DATA_DIR="$RUN/data" TUTTI_APP_LOG_DIR="$RUN/logs" \
-TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_APP_ID=design-review \
-TUTTI_WORKSPACE_ID=dev TUTTI_WORKSPACE_NAME=dev \
+TUTTI_APP_RUNTIME_DIR="$RUN/runtime" \
 TUTTI_CLI="$(command -v tutti || echo /usr/local/bin/tutti)" \
 "$(command -v python3)" server.py
 ```
@@ -83,7 +87,9 @@ TUTTI_CLI="$(command -v tutti || echo /usr/local/bin/tutti)" \
   `{ "text": "<agent text>", "agentSessionId": "...", "agentProvider": "..." }`.
 - `POST /tutti/cli/review` — CLI `review` handler. Returns a `CliCommandOutput`
   envelope `{ "kind": "json", "value": <design report> }`.
-- `POST /tutti/cli/status` — CLI `status` handler. Returns provider/app readiness.
+- `POST /tutti/cli/status` — CLI `status` handler. Returns provider/app readiness
+  (`ok` is true only when `TUTTI_CLI` is configured and the agent provider is ready;
+  it also reports `tuttiCliConfigured` and an `error` reason when not ready).
 
 CLI request body — invoke envelope: Tutti posts an **invoke envelope**, not the
 raw command input, to these handlers:
@@ -98,7 +104,9 @@ raw command input, to these handlers:
 accepts a raw input object directly as a local-test / backward-compat path (never
 rely on that for Tutti runtime calls). Handlers return the `CliCommandOutput` shape
 (`{"kind":"json","value":...}`) **directly** — never wrapped in `{"ok":...}`. On
-error they return a non-2xx status with `{ "error": "<message>" }`.
+error they return a non-2xx status with the CLI error body
+`{ "error": { "code": "<code>", "message": "<message>" } }` (Tutti surfaces
+`error.message` to callers).
 
 ## Tutti ecosystem (CLI capabilities)
 

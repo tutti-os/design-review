@@ -804,7 +804,8 @@ this.subjectPlaceholder()
   toggleShotConsent = () => this.setState(s => ({ shotConsent: !s.shotConsent }));
   // Refuse to send anything that could leak: non-http(s), embedded credentials,
   // localhost / private / link-local / CGNAT / .local etc. hosts, bare single-label
-  // hosts, or URLs carrying token-like query/hash material.
+  // hosts, IP literals in non-canonical notations (short-form 127.1, octal/hex
+  // octets, IPv4-mapped IPv6), or URLs carrying token-like query/hash material.
   isUnsafeShotUrl = (raw) => {
     let u;
     try { u = new URL(raw); } catch(e){ return true; }
@@ -814,19 +815,39 @@ this.subjectPlaceholder()
     if(!host) return true;
     if(host === 'localhost' || host.endsWith('.localhost')) return true;
     if(/\.(local|internal|intranet|lan|home|corp)$/.test(host)) return true;
-    if(host.indexOf('.') === -1 && host.indexOf(':') === -1) return true; // bare single-label host
-    const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if(m){
-      const o = m.slice(1).map(Number);
-      if(o.some(n => n > 255)) return true;
+    if(host.indexOf('.') === -1 && host.indexOf(':') === -1) return true; // bare single-label host (incl. decimal/hex packed IPs)
+    // Private / loopback / link-local / CGNAT IPv4, given four decimal octets.
+    const privateV4 = (o) => {
       if(o[0] === 0 || o[0] === 127 || o[0] === 10) return true;
       if(o[0] === 192 && o[1] === 168) return true;
       if(o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
       if(o[0] === 169 && o[1] === 254) return true;        // link-local
       if(o[0] === 100 && o[1] >= 64 && o[1] <= 127) return true; // CGNAT
+      return false;
+    };
+    // Decimal IPv4 literal. Only a canonical 4-octet quad (in range, no leading
+    // zeros) is treated as a public address; any other all-numeric form (127.1,
+    // 3-part, octal 0177.x, >4 parts) is non-canonical and refused — public hosts
+    // are never written this way and clients may resolve them to private IPs.
+    if(/^[0-9.]+$/.test(host)){
+      const parts = host.split('.');
+      const canonical = parts.length === 4 && parts.every(p => /^(0|[1-9]\d{0,2})$/.test(p) && Number(p) <= 255);
+      if(!canonical || privateV4(parts.map(Number))) return true;
     }
-    if(host === '::1' || host === '::') return true;
-    if(/^(fe80|fc|fd)/.test(host)) return true;            // IPv6 link-local / ULA
+    // Hex/octal-flavored IPv4 (e.g. 0x7f.0.0.1) — can't trust client parsing, refuse.
+    if(/0x/i.test(host) && /^(0x[0-9a-f]+|\d+)(\.(0x[0-9a-f]+|\d+))*$/i.test(host)) return true;
+    if(host.indexOf(':') !== -1){
+      if(host === '::1' || host === '::') return true;
+      if(/^(fe80|fc|fd)/.test(host)) return true;            // IPv6 link-local / ULA
+      // IPv4-mapped / -embedded IPv6 (::ffff:127.0.0.1, ::127.0.0.1, 64:ff9b::10.0.0.1).
+      const emb = host.match(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+      if(emb){
+        const o = emb.slice(1).map(Number);
+        if(o.some(n => n > 255) || privateV4(o)) return true;
+      }
+      // Hex-form IPv4-mapped (e.g. ::ffff:7f00:0001) — refuse, can't safely resolve.
+      if(/^(::ffff:|::)[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(host)) return true;
+    }
     const cred = /(^|[?&#])([^=&#]*(token|secret|password|passwd|pwd|api[_-]?key|access[_-]?key|apikey|auth|session|sig|signature|credential|key))=/i;
     if(cred.test(u.search) || cred.test(u.hash)) return true;
     return false;

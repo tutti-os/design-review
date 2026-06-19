@@ -1,0 +1,104 @@
+{
+  "brand": {
+    "name": "Nitpick",
+    "subtitle": "AI Design Critique"
+  },
+  "header": {
+    "reviewNext": "↺ Review next"
+  },
+  "input": {
+    "badge": "Your pocket AI design director",
+    "headlineLead": "Hand your design to an AI director — ",
+    "headlineHighlight": "find every flaw",
+    "headlineTail": ".",
+    "tagline": "Paste a website link, or drop in a screenshot. Professional scoring across six dimensions, plus a fix list you can act on right away.",
+    "tabUrl": "🔗 Link",
+    "tabImg": "🖼 Screenshot",
+    "urlPlaceholder": "https://your-design.com",
+    "shotConsentLabel": "Send the link to a third-party screenshot service (api.microlink.io) to capture the page for visual review (public links only)",
+    "urlHintS1": "Unchecked, it runs a ",
+    "urlHintB1": "text-only review",
+    "urlHintS2": " from the link. localhost, private, and credentialed or tokenized links are never sent out — for those, ",
+    "urlHintB2": "upload a screenshot",
+    "urlHintS3": " instead.",
+    "dropTitle": "Drop a screenshot here, or click to choose",
+    "dropHint": "PNG / JPG · full-page or single screen both work",
+    "replaceImage": "Replace",
+    "analyze": "Start the critique →",
+    "promptToggleShow": "View the prompt sent to the review agent ▾",
+    "promptToggleHide": "Hide prompt ▴",
+    "promptHint": "This is the full instruction sent to the review agent on click (with strict output-format constraints baked in). To wire in your own review agent, just forward this together with the link / image.",
+    "promptLabel": "Review agent prompt",
+    "copyDefault": "📋 Copy prompt",
+    "copyDone": "✓ Copied",
+    "dimsTitle": "The six review dimensions"
+  },
+  "dims": [
+    "Visual hierarchy / layout",
+    "Color & contrast",
+    "Consistency",
+    "Usability",
+    "Brand fit",
+    "Conversion / CTA"
+  ],
+  "analyzing": {
+    "title": "The director is reviewing…",
+    "shooting": "Opening the page and capturing it…",
+    "steps": [
+      "Parsing visual hierarchy and layout…",
+      "Comparing color and contrast…",
+      "Checking component and rhythm consistency…",
+      "Walking the flow as a user…",
+      "Weighing brand-tone fit…",
+      "Tracing the conversion path for drop-offs…"
+    ]
+  },
+  "error": {
+    "title": "The review didn't go through",
+    "body": "The AI didn't return a valid result — usually a network or parsing hiccup. Trying again normally fixes it.",
+    "retry": "Try again"
+  },
+  "result": {
+    "outOf": "/ 100",
+    "gradeExcellent": "Excellent · be proud",
+    "gradeGood": "Good · room to grow",
+    "gradePass": "Passable · clear gaps",
+    "gradeRework": "Needs rework · plenty to fix",
+    "sourceJson": "External agent review",
+    "sourceUrlFallback": "Link review",
+    "sourceImgFallback": "Screenshot review",
+    "suggestionsTitle": "Fix list",
+    "suggestionsSubtitle": "Sorted by priority — work top to bottom.",
+    "reviewAnother": "↺ Review another"
+  },
+  "canvas": {
+    "title": "Annotate on the design",
+    "subtitle": "Colored boxes are issues the agent flagged; draw your own box to comment, then send it to the agent for targeted advice.",
+    "annotateOn": "✓ Annotating · drag to draw a box",
+    "annotateOff": "✏️ Add annotation",
+    "markersLoading": "Locating the problem areas on the image…",
+    "markersFailedText": "Annotation locating timed out or failed.",
+    "retry": "↻ Retry",
+    "agentMarkersTitle": "Issues the agent flagged",
+    "hideAll": "Hide all",
+    "showAll": "Show all",
+    "markerHelp": "Click any item to show / hide its box on the left.",
+    "markerToggleTitle": "Click to show / hide this box",
+    "myComments": "My comments",
+    "userBadge": "You",
+    "userRegionLabel": "Area {n} you selected",
+    "delete": "Delete",
+    "commentPlaceholder": "What's wrong here? How should the agent change it?",
+    "sendDefault": "Send to agent →",
+    "sendAgain": "↻ Re-analyze",
+    "sending": "Analyzing…",
+    "sendError": "⚠️ Analysis failed, please retry.",
+    "agentReply": "Agent advice",
+    "noCommentsS1": "No comments yet. Tap ",
+    "noCommentsB1": "✏️ Add annotation",
+    "noCommentsS2": " in the top right, drag a box on the image, write your question, then send it to the agent."
+  },
+  "agent": {
+    "callFailed": "Review agent call failed."
+  }
+}

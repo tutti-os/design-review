@@ -1,0 +1,69 @@
+name: Publish Tutti App Production
+
+# Publishes the design-review app package to the production Tutti App Center
+# release bucket and (optionally) refreshes the production catalog.
+#
+# Prerequisites (configured by the repo/org owner, not by this file):
+#   - The repository can assume the Tutti release AWS role via GitHub OIDC
+#     (id-token: write below).
+#   - The TUTTI_APP_RELEASES_* organization (or repository) variables referenced
+#     under `with:` are visible to this repository.
+#
+# Packaging is Python-based: `package_command` runs scripts/package_tutti_app.py,
+# which assembles and validates build/tutti-app/package. (The generic template
+# default is `pnpm package:tutti`; this app ships a pure-Python runtime, so it
+# has no Node/pnpm toolchain.) ubuntu-latest provides python3 out of the box.
+#
+# Run the staging workflow first; promote to production only after staging and
+# the optional staging catalog are verified.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_bump:
+        description: Semver bump to publish.
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      publish_catalog:
+        description: Whether to publish the production App Center catalog after this release.
+        required: false
+        type: boolean
+        default: true
+      catalog_only:
+        description: Whether to skip app release upload and only publish the existing latest release to catalog.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    # Pinned to a commit SHA from tutti-os/tutti main (2026-06-19); bump when the shared release workflow updates.
+    uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@f2662bf3a8735affbec52621d390644e2f4db26b
+    with:
+      app_id: design-review
+      package_command: python3 scripts/package_tutti_app.py
+      package_dir: build/tutti-app/package
+      # If App Center requires a raster icon, generate build/tutti-app/package/icon.png
+      # in the packaging step and point icon_path at it instead.
+      icon_path: build/tutti-app/package/icon.svg
+      release_tag_prefix: design-review-v
+      release_bump: ${{ inputs.release_bump }}
+      create_release_tag: ${{ !inputs.catalog_only }}
+      runner: ubuntu-latest
+      publish_catalog: ${{ inputs.publish_catalog }}
+      catalog_only: ${{ inputs.catalog_only }}
+      aws_region: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_AWS_REGION || vars.TUTTI_APP_RELEASES_AWS_REGION }}
+      aws_role_arn: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_AWS_ROLE_ARN || vars.TUTTI_APP_RELEASES_AWS_ROLE_ARN }}
+      s3_bucket: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_S3_BUCKET || vars.TUTTI_APP_RELEASES_S3_BUCKET }}
+      s3_prefix: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_S3_PREFIX || vars.TUTTI_APP_RELEASES_S3_PREFIX }}
+      release_assets_base_url: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_BASE_URL || vars.TUTTI_APP_RELEASES_BASE_URL }}
+      catalog_cloudfront_distribution_id: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID || vars.TUTTI_APP_RELEASES_CLOUDFRONT_DISTRIBUTION_ID || '' }}

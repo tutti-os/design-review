@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Local Claude / preview config (not part of the published app package)
+.claude/
+
+# Local runtime artifacts (normally written outside the package via TUTTI_APP_* env dirs)
+*.log
+data/
+runtime/
+logs/
+
+# Built publishable package (produced by scripts/package_tutti_app.py)
+build/
+
+# Local dev scratch (scripts/dev.py writes data/logs/runtime here)
+.dev/

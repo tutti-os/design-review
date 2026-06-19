@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--__TUTTI_I18N__-->
+<script src="./tutti-agent.js"></script>
+<script src="./i18n.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #F2ECE0;
+    --surface: #F7F3EC;
+    --surface-2: #EAE3D4;
+    --surface-3: #EFE9DC;
+    --input-bg: #FFFFFF;
+    --ink: #16140F;
+    --text-2: #5C5648;
+    --muted: #8A8275;
+    --muted-2: #A89E8C;
+    --line: #C4BAA6;
+    --shadow: #16140F;
+    --on-accent: #16140F;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #14121A;
+      --surface: #211D2A;
+      --surface-2: #2C2738;
+      --surface-3: #262031;
+      --input-bg: #1A1722;
+      --ink: #ECE7F3;
+      --text-2: #BFB8CA;
+      --muted: #978FA7;
+      --muted-2: #6F6880;
+      --line: #3B3548;
+      --shadow: #000000;
+      --on-accent: #16140F;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); }
+  ::selection { background: var(--ink); color: var(--surface); }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
+  @keyframes tc-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.82); opacity:.55; } }
+  @keyframes tc-bar { 0% { left: -42%; } 100% { left: 100%; } }
+  @keyframes tc-up { from { transform: translateY(16px); } to { transform: translateY(0); } }
+  @keyframes tc-pop { 0% { transform: scale(.95); } 60% { transform: scale(1.02); } 100% { transform: scale(1); } }
+  @keyframes tc-float { 0%,100% { transform: translateY(0) rotate(-3deg);} 50% { transform: translateY(-7px) rotate(2deg);} }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:var(--bg); font-family:'Space Grotesk',-apple-system,sans-serif; color:var(--ink); padding:0 24px 80px;">
+
+  <!-- header -->
+  <div style="max-width:1080px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:26px 4px 0;">
+    <div style="display:flex; align-items:center; gap:11px;">
+      <div style="width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:{{ primary }}; box-shadow:3px 3px 0 var(--shadow); transform:rotate(-4deg);">
+        <div style="width:11px; height:11px; background:var(--surface); border-radius:50%;"></div>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:8px;">
+        <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:20px; letter-spacing:-.5px;">{{ brandName }}</span>
+        <span style="font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);">{{ brandSubtitle }}</span>
+      </div>
+    </div>
+    <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ reset }}" style="font-family:'Space Grotesk'; font-weight:600; font-size:13px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:9px 16px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ reviewNext }}</button>
+    </sc-if>
+  </div>
+
+  <!-- ============ INPUT ============ -->
+  <sc-if value="{{ isInput }}" hint-placeholder-val="{{ true }}">
+  <div style="max-width:760px; margin:0 auto; padding-top:54px;">
+    <div style="display:inline-flex; align-items:center; gap:8px; background:#16140F; color:#F7F3EC; padding:7px 14px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.5px; animation:tc-up .5s both;">
+      <span style="width:7px;height:7px;border-radius:50%;background:{{ primary }};display:inline-block;"></span>
+      {{ inputBadge }}
+    </div>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(38px,6vw,62px); line-height:1.02; letter-spacing:-1.5px; margin:20px 0 0; max-width:9em; animation:tc-up .6s .05s both;">{{ headlineLead }}<span style="position:relative; white-space:nowrap;">{{ headlineHighlight }}<span style="position:absolute; left:0; right:0; bottom:6px; height:13px; background:{{ primary }}; opacity:.32; z-index:-1; border-radius:3px;"></span></span>{{ headlineTail }}</h1>
+    <p style="font-size:17px; line-height:1.6; color:var(--text-2); max-width:30em; margin:18px 0 0; animation:tc-up .6s .12s both;">
+      {{ tagline }}
+    </p>
+
+    <!-- card -->
+    <div style="margin-top:34px; background:var(--surface); border:2.5px solid var(--ink); border-radius:24px; box-shadow:7px 7px 0 var(--shadow); padding:10px; animation:tc-pop .5s .18s both;">
+      <!-- tabs -->
+      <div style="display:flex; gap:6px; padding:6px; background:var(--surface-2); border-radius:16px;">
+        <button onClick="{{ setUrl }}" style="flex:1; display:flex; align-items:center; justify-content:center; gap:7px; font-family:'Space Grotesk'; font-weight:600; font-size:14.5px; padding:12px 8px; border:none; border-radius:11px; cursor:pointer; background:{{ urlTabBg }}; color:{{ urlTabFg }}; box-shadow:{{ urlTabShadow }}; transition:all .15s;">{{ tabUrl }}</button>
+        <button onClick="{{ setImg }}" style="flex:1; display:flex; align-items:center; justify-content:center; gap:7px; font-family:'Space Grotesk'; font-weight:600; font-size:14.5px; padding:12px 8px; border:none; border-radius:11px; cursor:pointer; background:{{ imgTabBg }}; color:{{ imgTabFg }}; box-shadow:{{ imgTabShadow }}; transition:all .15s;">{{ tabImg }}</button>
+      </div>
+
+      <div style="padding:20px 16px 16px;">
+        <!-- URL mode -->
+        <sc-if value="{{ isUrl }}" hint-placeholder-val="{{ true }}">
+          <input value="{{ url }}" onInput="{{ onUrl }}" placeholder="{{ urlPlaceholder }}" style="width:100%; font-family:'Space Grotesk'; font-size:17px; padding:15px 18px; border:2px solid var(--ink); border-radius:13px; background:var(--input-bg); outline:none; color:var(--ink);">
+          <button onClick="{{ toggleShotConsent }}" style="display:flex; gap:8px; align-items:flex-start; width:100%; text-align:left; margin-top:11px; padding:0; background:none; border:none; cursor:pointer; font-family:'Space Grotesk'; font-size:12.5px; line-height:1.5; color:var(--text-2);">
+            <span style="flex-shrink:0; font-size:14px;">{{ shotConsentBox }}</span><span>{{ shotConsentLabel }}</span>
+          </button>
+          <div style="display:flex; gap:8px; align-items:flex-start; margin-top:9px; font-size:12.5px; line-height:1.5; color:var(--muted);">
+            <span style="flex-shrink:0;">ℹ️</span><span>{{ urlHintS1 }}<b style="color:var(--text-2);">{{ urlHintB1 }}</b>{{ urlHintS2 }}<b style="color:var(--text-2);">{{ urlHintB2 }}</b>{{ urlHintS3 }}</span>
+          </div>
+        </sc-if>
+        <!-- IMG mode -->
+        <sc-if value="{{ isImg }}" hint-placeholder-val="{{ false }}">
+          <input type="file" accept="image/*" ref="{{ fileRef }}" onChange="{{ onFile }}" style="display:none;">
+          <sc-if value="{{ hasImage }}" hint-placeholder-val="{{ false }}">
+            <div style="position:relative; border:2px solid var(--ink); border-radius:14px; overflow:hidden; background:var(--input-bg);">
+              <div style="display:block; width:100%;">{{ previewImg }}</div>
+              <button onClick="{{ openFile }}" style="position:absolute; top:10px; right:10px; font-family:'Space Grotesk'; font-weight:600; font-size:12px; background:#16140F; color:#F7F3EC; border:none; padding:7px 13px; border-radius:999px; cursor:pointer;">{{ replaceImage }}</button>
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:9px 13px; background:linear-gradient(transparent,rgba(0,0,0,.6)); color:#fff; font-size:12px; font-weight:500;">{{ fileName }}</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noImage }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ openFile }}" onDrop="{{ onDrop }}" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" style="border:2.5px dashed {{ dropBorder }}; border-radius:14px; background:{{ dropBg }}; padding:46px 20px; text-align:center; cursor:pointer; transition:all .15s;">
+              <div style="font-size:34px; line-height:1;">🖼</div>
+              <div style="font-family:'Space Grotesk'; font-weight:600; font-size:16px; margin-top:12px;">{{ dropTitle }}</div>
+              <div style="font-size:12.5px; color:var(--muted); margin-top:5px;">{{ dropHint }}</div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <button onClick="{{ analyze }}" style="width:100%; margin-top:14px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; padding:16px; border:2.5px solid var(--ink); border-radius:13px; cursor:{{ goCursor }}; background:{{ primary }}; color:#F7F3EC; box-shadow:4px 4px 0 var(--shadow); opacity:{{ goOpacity }}; transition:opacity .15s;">{{ analyzeBtnLabel }}</button>
+
+        <div style="display:flex; align-items:center; justify-content:center; gap:7px; margin-top:13px;">
+          <button onClick="{{ togglePrompt }}" style="background:none; border:none; cursor:pointer; font-family:'Space Grotesk'; font-weight:600; font-size:12.5px; color:var(--muted);">{{ promptToggleLabel }}</button>
+        </div>
+        <sc-if value="{{ showPrompt }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; gap:8px; align-items:flex-start; font-size:12.5px; line-height:1.55; color:var(--text-2); background:var(--surface-3); border-radius:11px; padding:11px 13px; margin-top:6px;">
+            <span style="flex-shrink:0;">🤝</span><span>{{ promptHint }}</span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin:14px 0 8px;">
+            <span style="font-size:12px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted);">{{ promptLabel }}</span>
+            <button onClick="{{ copyPrompt }}" style="font-family:'Space Grotesk'; font-weight:600; font-size:12.5px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:6px 13px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ copyLabel }}</button>
+          </div>
+          <pre style="margin:0; max-height:240px; overflow:auto; background:#16140F; color:#D7CFBE; font-family:ui-monospace,'SFMono-Regular',Menlo,monospace; font-size:12px; line-height:1.55; padding:15px 16px; border-radius:13px; white-space:pre-wrap; word-break:break-word;">{{ promptText }}</pre>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- dimension chips -->
+    <div style="margin-top:30px; animation:tc-up .6s .26s both;">
+      <div style="font-size:12px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">{{ dimsTitle }}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:9px;">
+        <sc-for list="{{ dimMeta }}" as="d" hint-placeholder-count="6">
+          <div style="display:flex; align-items:center; gap:8px; background:var(--surface); border:2px solid var(--ink); border-radius:999px; padding:8px 15px; font-size:13.5px; font-weight:600;">
+            <span style="width:11px; height:11px; border-radius:3px; background:{{ d.accent }};"></span>{{ d.name }}
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ ANALYZING ============ -->
+  <sc-if value="{{ isAnalyzing }}" hint-placeholder-val="{{ false }}">
+  <div style="max-width:560px; margin:0 auto; padding-top:120px; text-align:center;">
+    <div style="width:84px; height:84px; margin:0 auto; position:relative;">
+      <div style="position:absolute; inset:0; border:5px solid var(--surface-2); border-top-color:{{ primary }}; border-radius:50%; animation:tc-spin 1s linear infinite;"></div>
+      <div style="position:absolute; inset:24px; background:{{ primary }}; border-radius:50%; animation:tc-pulse 1.4s ease-in-out infinite;"></div>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:30px; letter-spacing:-.8px; margin:34px 0 0;">{{ analyzingTitle }}</h2>
+    <div style="font-size:17px; color:var(--text-2); margin-top:10px; min-height:1.4em;">{{ stepText }}</div>
+    <div style="position:relative; height:8px; background:var(--surface-2); border-radius:999px; overflow:hidden; margin-top:28px; border:2px solid var(--ink);">
+      <div style="position:absolute; top:0; bottom:0; width:42%; background:{{ primary }}; border-radius:999px; animation:tc-bar 1.3s ease-in-out infinite;"></div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ ERROR ============ -->
+  <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+  <div style="max-width:520px; margin:0 auto; padding-top:120px; text-align:center;">
+    <div style="font-size:48px;">😵‍💫</div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; margin:16px 0 0;">{{ errorTitle }}</h2>
+    <p style="font-size:15px; color:var(--text-2); margin:12px 0 0; line-height:1.6;">{{ errorBody }}</p>
+    <div style="font-size:12px; color:var(--muted-2); margin-top:12px; word-break:break-all;">{{ error }}</div>
+    <button onClick="{{ retry }}" style="margin-top:26px; font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:13px 30px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:{{ primary }}; color:#F7F3EC; box-shadow:4px 4px 0 var(--shadow);">{{ errorRetry }}</button>
+  </div>
+  </sc-if>
+
+  <!-- ============ RESULT ============ -->
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+  <div style="max-width:1080px; margin:0 auto; padding-top:38px;">
+
+    <!-- scoreboard -->
+    <div style="position:relative; display:flex; gap:26px; flex-wrap:wrap; align-items:stretch; color:#F7F3EC; border-radius:26px; padding:30px 34px; overflow:hidden; background:radial-gradient(130% 150% at 0% 0%, rgba(247,243,236,.07), transparent 42%), linear-gradient(155deg,#241E17 0%,#17130D 56%,#100C08 100%); border:1px solid rgba(247,243,236,.1); box-shadow:0 26px 64px -28px rgba(16,12,8,.7), inset 0 1px 0 rgba(247,243,236,.06); animation:tc-pop .5s both;">
+      <div style="position:absolute; top:-90px; right:-50px; width:300px; height:300px; border-radius:50%; background:{{ ringColor }}; opacity:.14; filter:blur(70px); pointer-events:none;"></div>
+      <div style="flex-shrink:0; width:150px; height:150px; position:relative; display:grid; place-items:center;">
+        <svg viewBox="0 0 200 200" style="width:100%; height:100%; transform:rotate(-90deg);">
+          <circle cx="100" cy="100" r="86" fill="none" stroke="#2E2A22" stroke-width="16"></circle>
+          <circle cx="100" cy="100" r="86" fill="none" stroke="{{ ringColor }}" stroke-width="16" stroke-linecap="round" stroke-dasharray="{{ ringDash }}"></circle>
+        </svg>
+        <div style="position:absolute; text-align:center;">
+          <div style="font-family:'Bricolage Grotesque'; font-weight:800; font-size:50px; line-height:1; color:{{ ringColor }};">{{ overall }}</div>
+          <div style="font-size:11px; letter-spacing:2px; color:#938A78; margin-top:2px;">{{ outOf }}</div>
+        </div>
+      </div>
+      <div style="flex:1; min-width:240px; display:flex; flex-direction:column; justify-content:center;">
+        <div style="display:inline-flex; align-self:flex-start; align-items:center; gap:7px; background:{{ ringColor }}; color:var(--on-accent); padding:5px 13px; border-radius:999px; font-size:12.5px; font-weight:700;">{{ gradeLabel }}</div>
+        <h2 style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:25px; line-height:1.25; letter-spacing:-.4px; margin:14px 0 0;">{{ summary }}</h2>
+        <div style="display:flex; align-items:center; gap:9px; margin-top:16px; font-size:13px; color:#938A78;">
+          <span style="display:inline-flex; align-items:center; gap:6px; background:#2E2A22; padding:6px 12px; border-radius:8px;">{{ sourceIcon }} {{ sourceLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- annotated canvas (image reviews only) -->
+    <sc-if value="{{ showCanvas }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:24px; background:var(--surface); border:2.5px solid var(--ink); border-radius:20px; box-shadow:5px 5px 0 var(--shadow); overflow:hidden; animation:tc-up .5s both;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:16px 18px; border-bottom:2px solid var(--ink); background:var(--surface-3);">
+        <div>
+          <div style="font-family:'Bricolage Grotesque'; font-weight:800; font-size:18px;">{{ canvasTitle }}</div>
+          <div style="font-size:12.5px; color:var(--muted); margin-top:2px;">{{ canvasSubtitle }}</div>
+        </div>
+        <button onClick="{{ toggleAnnotate }}" style="flex-shrink:0; font-family:'Space Grotesk'; font-weight:700; font-size:13.5px; border:2.5px solid var(--ink); background:{{ annotateBtnBg }}; color:{{ annotateBtnFg }}; padding:10px 16px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ annotateLabel }}</button>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+        <!-- canvas -->
+        <div style="flex:1 1 440px; min-width:300px; background:var(--surface-2); padding:18px; display:flex; align-items:flex-start; justify-content:center;">
+          <div ref="{{ overlayRef }}" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onPointerUp="{{ onCanvasUp }}" style="position:relative; max-width:100%; line-height:0; cursor:{{ overlayCursor }}; touch-action:{{ overlayTouch }}; user-select:none; box-shadow:0 10px 28px -12px rgba(0,0,0,.45);">
+            {{ canvasImg }}
+            <sc-for list="{{ canvasMarkers }}" as="m" hint-placeholder-count="0">
+              <div style="position:absolute; left:{{ m.left }}; top:{{ m.top }}; width:{{ m.w }}; height:{{ m.h }}; border:2.5px solid {{ m.color }}; background:{{ m.fill }}; border-radius:4px; pointer-events:none;">
+                <span style="position:absolute; top:-12px; left:-12px; width:24px; height:24px; border-radius:50%; background:{{ m.color }}; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:12px; display:grid; place-items:center; box-shadow:1.5px 1.5px 0 var(--shadow); line-height:1;">{{ m.n }}</span>
+              </div>
+            </sc-for>
+            <sc-for list="{{ userAnnos }}" as="a" hint-placeholder-count="0">
+              <div style="position:absolute; left:{{ a.left }}; top:{{ a.top }}; width:{{ a.w }}; height:{{ a.h }}; border:2.5px dashed #6C3BFF; background:rgba(108,59,255,.13); border-radius:4px; pointer-events:none;">
+                <span style="position:absolute; top:-12px; left:-12px; padding:0 8px; height:22px; border-radius:999px; background:#6C3BFF; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:11px; display:grid; place-items:center; box-shadow:1.5px 1.5px 0 var(--shadow); line-height:1; white-space:nowrap;">{{ a.badge }}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ isDrawing }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute; left:{{ drawLeft }}; top:{{ drawTop }}; width:{{ drawW }}; height:{{ drawH }}; border:2.5px dashed #6C3BFF; background:rgba(108,59,255,.1); border-radius:4px; pointer-events:none;"></div>
+            </sc-if>
+          </div>
+        </div>
+        <!-- sidebar -->
+        <div style="flex:1 1 300px; min-width:280px; border-top:2px solid var(--ink); padding:18px; display:flex; flex-direction:column; gap:13px; max-height:600px; overflow:auto;">
+          <sc-if value="{{ markersLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted); background:var(--surface); border:1.5px dashed var(--line); border-radius:11px; padding:12px 14px;">
+              <span style="width:14px; height:14px; border:2.5px solid var(--surface-2); border-top-color:#6C3BFF; border-radius:50%; animation:tc-spin .9s linear infinite; flex-shrink:0;"></span>
+              {{ markersLoadingText }}
+            </div>
+          </sc-if>
+          <sc-if value="{{ markersFailed }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:var(--muted); background:var(--surface-3); border:1.5px solid var(--line); border-radius:11px; padding:11px 14px;">
+              <span>{{ markersFailedText }}</span>
+              <button onClick="{{ retryMarkers }}" style="flex-shrink:0; font-family:'Space Grotesk'; font-weight:700; font-size:12.5px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:6px 13px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ markersRetry }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ hasAgentMarkers }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <div style="font-size:12px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted);">{{ agentMarkersTitle }}</div>
+              <button onClick="{{ toggleAllMarkers }}" style="flex-shrink:0; display:inline-flex; align-items:center; gap:5px; font-family:'Space Grotesk'; font-weight:600; font-size:12px; border:1.5px solid var(--line); background:var(--input-bg); color:var(--text-2); padding:5px 11px; border-radius:999px; cursor:pointer;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>{{ allMarkersLabel }}
+              </button>
+            </div>
+            <div style="font-size:11.5px; color:var(--muted-2); margin:-4px 0 2px;">{{ markerHelp }}</div>
+            <sc-for list="{{ agentMarkers }}" as="m" hint-placeholder-count="0">
+              <div onClick="{{ m.onToggle }}" title="{{ m.toggleTitle }}" style="display:flex; gap:10px; align-items:flex-start; cursor:pointer; opacity:{{ m.rowOpacity }}; padding:7px 9px; margin:0 -9px; border-radius:11px; transition:opacity .12s;" style-hover="background:var(--surface-3);">
+                <span style="flex-shrink:0; width:22px; height:22px; border-radius:50%; background:{{ m.badgeBg }}; color:{{ m.badgeFg }}; font-family:'Space Grotesk'; font-weight:700; font-size:11px; display:grid; place-items:center; border:2px solid {{ m.color }};">{{ m.n }}</span>
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; line-height:1.45;">{{ m.note }}</div>
+                  <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">{{ m.dim }} · {{ m.severity }}</div>
+                </div>
+                <span style="flex-shrink:0; margin-top:2px; line-height:0;">
+                  <sc-if value="{{ m.visible }}" hint-placeholder-val="{{ true }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </sc-if>
+                  <sc-if value="{{ m.hidden }}" hint-placeholder-val="{{ false }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7c1.7 0 3.2.4 4.5 1M22 12s-3.6 7-10 7c-1.7 0-3.2-.4-4.5-1"></path><line x1="3" y1="3" x2="21" y2="21"></line></svg>
+                  </sc-if>
+                </span>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <div style="font-size:12px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-top:2px;">{{ myComments }}</div>
+          <sc-for list="{{ userAnnos }}" as="a" hint-placeholder-count="0">
+            <div style="border:2px solid var(--ink); border-radius:13px; padding:12px; background:var(--input-bg);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <span style="font-family:'Space Grotesk'; font-weight:700; font-size:12px; color:#6C3BFF;">{{ a.regionLabel }}</span>
+                <button onClick="{{ a.onDelete }}" style="background:none; border:none; cursor:pointer; color:var(--muted-2); font-size:12.5px; font-family:'Space Grotesk';">{{ a.deleteLabel }}</button>
+              </div>
+              <textarea value="{{ a.comment }}" onInput="{{ a.onComment }}" placeholder="{{ a.commentPlaceholder }}" style="width:100%; min-height:54px; resize:vertical; font-family:'Space Grotesk'; font-size:13px; line-height:1.5; padding:9px 11px; border:1.5px solid var(--line); border-radius:9px; outline:none; color:var(--ink); background:var(--input-bg);"></textarea>
+              <button onClick="{{ a.onSend }}" disabled="{{ a.isSending }}" style="width:100%; margin-top:9px; display:flex; align-items:center; justify-content:center; gap:8px; font-family:'Space Grotesk'; font-weight:700; font-size:13px; border:2px solid var(--ink); background:#6C3BFF; color:#fff; padding:9px; border-radius:9px; cursor:{{ a.sendCursor }}; box-shadow:2px 2px 0 var(--shadow); opacity:{{ a.sendOpacity }};">
+                <sc-if value="{{ a.isSending }}" hint-placeholder-val="{{ false }}">
+                  <span style="width:14px; height:14px; border:2.5px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:tc-spin .8s linear infinite; flex-shrink:0;"></span>
+                </sc-if>
+                {{ a.sendLabel }}
+              </button>
+              <sc-if value="{{ a.hasReply }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:10px; background:var(--surface-3); border-radius:9px; padding:11px 12px; font-size:13px; line-height:1.6; color:var(--ink);"><b style="color:#6C3BFF;">{{ a.replyLabel }}</b><br>{{ a.reply }}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noUserAnnos }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:13px; color:var(--muted); line-height:1.6; background:var(--surface); border:1.5px dashed var(--line); border-radius:11px; padding:14px;">{{ noCommentsS1 }}<b style="color:var(--text-2);">{{ noCommentsB1 }}</b>{{ noCommentsS2 }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- dimension cards -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; margin-top:24px;">
+      <sc-for list="{{ dims }}" as="d" hint-placeholder-count="6">
+        <div style="background:var(--surface); border:2.5px solid var(--ink); border-radius:18px; padding:20px; box-shadow:4px 4px 0 var(--shadow); animation:tc-up .5s both;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="width:14px; height:14px; border-radius:4px; background:{{ d.accent }}; box-shadow:1.5px 1.5px 0 var(--shadow);"></span>
+              <span style="font-family:'Space Grotesk'; font-weight:600; font-size:15.5px;">{{ d.name }}</span>
+            </div>
+            <span style="font-family:'Bricolage Grotesque'; font-weight:800; font-size:26px; color:{{ d.accent }};">{{ d.score }}</span>
+          </div>
+          <div style="height:9px; background:var(--surface-2); border-radius:999px; overflow:hidden; margin-top:14px; border:1.5px solid var(--ink);">
+            <div style="height:100%; width:{{ d.score }}%; background:{{ d.accent }};"></div>
+          </div>
+          <div style="font-weight:600; font-size:14px; margin-top:14px;">{{ d.verdict }}</div>
+          <div style="font-size:13.5px; line-height:1.55; color:var(--text-2); margin-top:5px;">{{ d.detail }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- suggestions -->
+    <div style="margin-top:34px;">
+      <h3 style="font-family:'Bricolage Grotesque'; font-weight:800; font-size:24px; letter-spacing:-.5px; margin:0 0 4px;">{{ suggestionsTitle }}</h3>
+      <p style="font-size:13.5px; color:var(--muted); margin:0 0 18px;">{{ suggestionsSubtitle }}</p>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="3">
+          <div style="display:flex; gap:16px; background:var(--surface); border:2.5px solid var(--ink); border-radius:16px; padding:18px 20px; box-shadow:3px 3px 0 var(--shadow); animation:tc-up .5s both;">
+            <div style="flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:7px;">
+              <span style="font-family:'Bricolage Grotesque'; font-weight:800; font-size:20px; color:var(--muted-2);">{{ s.num }}</span>
+              <span style="font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; background:{{ s.prioBg }}; color:{{ s.prioFg }}; white-space:nowrap;">{{ s.priority }}</span>
+            </div>
+            <div style="flex:1;">
+              <div style="font-family:'Space Grotesk'; font-weight:700; font-size:16px;">{{ s.title }}</div>
+              <div style="font-size:14px; line-height:1.55; color:var(--text-2); margin-top:5px;">{{ s.desc }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:40px;">
+      <button onClick="{{ reset }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:14px 32px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:#16140F; color:#F7F3EC; box-shadow:4px 4px 0 {{ primary }};">{{ reviewAnother }}</button>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: &quot;100%&quot;, &quot;height&quot;: 900 },
+  &quot;primary&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#6C3BFF&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;options&quot;: [&quot;#6C3BFF&quot;,&quot;#FF5747&quot;,&quot;#16C8C8&quot;,&quot;#FF3D8B&quot;,&quot;#16140F&quot;] },
+  &quot;strictness&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;标准&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;options&quot;: [&quot;宽松&quot;,&quot;标准&quot;,&quot;严苛&quot;] }
+}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.fileInput = React.createRef();
+    this.overlayRef = React.createRef();
+    const L0 = (window.TuttiI18n ? window.TuttiI18n.initialLocale() : 'zh-CN');
+    this.state = {
+      mode: 'url',
+      url: '',
+      shotConsent: false,   // opt-in before any URL leaves the browser to the 3rd-party screenshot service
+      imageData: null,
+      imageMediaType: null,
+      imagePreview: null,
+      fileName: '',
+      dragging: false,
+      status: 'input', // analyzing | done | error
+      result: null,
+      error: '',
+      step: 0,
+      jsonText: '',
+      copied: false,
+      showPrompt: false,
+      annotateMode: false,
+      annotations: [],   // { id, box:{x,y,w,h}, comment, reply, status:'draft'|'sending'|'done' }
+      drawing: false,
+      drawStart: null,
+      drawRect: null,
+      shooting: false,
+      markersLoading: false,
+      markersFailed: false,
+      markers: [],         // 标注框（第 2 波调用结果，独立于评分卡，便于两波并发）
+      hiddenMarkers: {},   // { [index]: true } 被隐藏的 Agent 标注框
+      locale: L0,
+    };
+    this.DIMS = this.dimsFor(L0);
+    this.STEPS = this.stepsFor(L0);
+  }
+
+  ACCENTS = ['#6C3BFF','#FF5747','#16C8C8','#FFB300','#FF3D8B','#7BC400'];
+
+  // ---------- i18n（语言随 Tutti host 上下文 / 浏览器语言切换，不读 URL 参数）----------
+  locale = () => (this.state && this.state.locale) || (window.TuttiI18n ? window.TuttiI18n.defaultLocale : 'zh-CN');
+  tt = (key) => window.TuttiI18n ? window.TuttiI18n.t(this.locale(), key) : key;
+  dimsFor = (L) => {
+    const fallback = ['视觉层次/排版','配色与对比','一致性','可用性/易用性','品牌契合度','转化/CTA 效果'];
+    const list = window.TuttiI18n ? window.TuttiI18n.list(L, 'dims') : [];
+    return (list && list.length === 6) ? list : fallback;
+  };
+  stepsFor = (L) => {
+    const list = window.TuttiI18n ? window.TuttiI18n.list(L, 'analyzing.steps') : [];
+    return (list && list.length) ? list : ['…'];
+  };
+  applyLocale = (raw) => {
+    if(!window.TuttiI18n) return;
+    const L = window.TuttiI18n.normalize(raw);
+    if(L === this.state.locale) return;
+    this.DIMS = this.dimsFor(L);
+    this.STEPS = this.stepsFor(L);
+    try { document.documentElement.lang = L; } catch(e){}
+    this.setState({ locale: L });
+  };
+  strictnessKey = () => {
+    const raw = this.props.strictness;
+    const v = String(raw || '').trim().toLowerCase();
+    if(raw === '严苛' || v === 'strict') return 'strict';
+    if(raw === '宽松' || v === 'relaxed') return 'relaxed';
+    return 'standard';
+  };
+  subjectPlaceholder = () => this.locale()==='en'
+    ? '<paste the website link here, or attach the screenshot / design>'
+    : '<在这里粘贴网站链接，或附上截图 / 设计稿>';
+  subjectImageText = () => this.locale()==='en'
+    ? 'The design to review is attached as an image in this message; review it directly from that image.'
+    : '待评审设计已作为图片附在本条消息中，请直接基于该图片进行评审。';
+  subjectUrlText = (link) => this.locale()==='en'
+    ? ('Website link: ' + link + '\n(You cannot browse it live; review from what you know about this site/category, or from best practices for this kind of site.)')
+    : ('网站链接：' + link + '\n（你无法实时访问该网站，请基于既有了解评审；若不了解，请基于该类网站的最佳实践给出有针对性的评审。）');
+
+  componentDidMount(){
+    try { document.documentElement.lang = this.state.locale; } catch(e){}
+    if(!window.TuttiI18n) return;
+    window.TuttiI18n.readHostLocale().then((L) => { if(L) this.applyLocale(L); }).catch(()=>{});
+    this._unsubLocale = window.TuttiI18n.subscribeHostLocale((L) => { if(L) this.applyLocale(L); });
+  }
+  componentWillUnmount(){ clearInterval(this._t); if(this._unsubLocale) this._unsubLocale(); }
+
+  setUrlMode = () => this.setState({ mode:'url' });
+  setImgMode = () => this.setState({ mode:'image' });
+  setJsonMode = () => this.setState({ mode:'json' });
+  togglePrompt = () => this.setState(s => ({ showPrompt: !s.showPrompt }));
+  onUrl = (e) => this.setState({ url: e.target.value });
+  onJson = (e) => this.setState({ jsonText: e.target.value });
+
+  // 交给评审 Agent 用的严格提示词（随 UI 语言切换）。withMarkers=true 是含标注的完整版（单次调用 / 展示用）；
+  // 传 false 则去掉 markers（默认两波流程的评分卡那一波用，避免被 1024 token 截断）。
+  getExternalPrompt = (withMarkers = true) => {
+    const dims = this.DIMS;
+    const sk = this.strictnessKey();
+    if(this.locale() === 'en'){
+      const tone = sk==='strict' ? 'Apply a strict, demanding bar; score harshly and let no flaw slide.'
+                 : sk==='relaxed' ? 'Lean encouraging; score generously and focus on issues that truly hurt the experience.'
+                 : 'Apply a professional, objective bar; acknowledge strengths and name problems, and spread the scores.';
+      return [
+'# Role',
+'You are a senior design director running a strict, professional UI design review. '+tone,
+'',
+'# Task',
+'Review the UI design I provide (website link / screenshot / mockup), score it across the six fixed, ordered dimensions below, and produce an actionable fix list.',
+'',
+'# Dimensions (cover all; names and order exactly as below, do not add / rename / drop)',
+...dims.map((name,i)=> (i+1)+'. '+name),
+'',
+'# Scoring (integer 0-100)',
+'90-100 benchmark; 75-89 good; 60-74 passable with clear gaps; 40-59 needs rework; 0-39 serious problems.',
+'Spread the scores; do not cluster in 70-85. Score low when you find real problems; overall should roughly match the per-dimension scores.',
+'',
+'# Output format (extremely strict; violations count as failure)',
+'- Output only one valid JSON object; no prefix, suffix, comments, or markdown code fences (no ```).',
+'- Match the schema below exactly in fields, types and counts.',
+'- Use English everywhere; be specific and actionable, no filler. Obey every length limit.',
+'- Keep the whole JSON closed and compact: prefer shorter sentences over overflowing and truncating the JSON.',
+...(withMarkers ? ['- markers locate issues on the image: box coords are ratios of the whole image (top-left origin; x/y top-left, w/h size; all 0-1). When you can see the image, give 4-6 that correspond to the scores / fixes above.'] : []),
+'',
+'{',
+'  "overall": <integer 0-100>,',
+'  "summary": "<one-line verdict, <= 80 chars>",',
+'  "dimensions": [   // exactly 6 items, names and order as above',
+'    { "name": "<one of the six dimension names>", "score": <integer 0-100>, "verdict": "<one-line, <= 40 chars>", "detail": "<concrete issue or strength, <= 80 chars>" }',
+'  ],',
+...(withMarkers ? [
+'  "markers": [  // 4-6 when the image is visible; [] for link-only reviews where no image is seen',
+'    { "box": { "x": <0-1>, "y": <0-1>, "w": <0-1>, "h": <0-1> }, "dim": "<dimension name>", "severity": "<high|medium|low>", "note": "<issue here, <= 40 chars>" }',
+'  ],'
+] : []),
+'  "suggestions": [  // exactly 3, highest priority first',
+'    { "priority": "<high|medium|low>", "title": "<short title, <= 40 chars>", "desc": "<how to do it, <= 90 chars>" }',
+'  ]',
+'}',
+'',
+'# Subject to review',
+this.subjectPlaceholder()
+      ].join('\n');
+    }
+    const tone = sk==='strict' ? '采用严苛挑剔的标准，分数从严，绝不放过任何瑕疵。'
+               : sk==='relaxed' ? '以鼓励为主，分数偏宽，重点指出真正影响体验的问题。'
+               : '采用专业客观的标准，既肯定优点也直指问题，分数要拉开差距。';
+    return [
+'# 角色',
+'你是一位资深设计总监，正在做一次严格、专业的界面设计评审。'+tone,
+'',
+'# 任务',
+'评审我提供的界面设计（网站链接 / 截图 / 设计稿），从下面六个【固定且有序】的维度逐一打分，并产出一份可直接执行的改进清单。',
+'',
+'# 评分维度（必须全部覆盖，name 与顺序严格如下，不得增删改名）',
+...dims.map((name,i)=> (i+1)+'. '+name),
+'',
+'# 评分标准（0-100 整数）',
+'90-100 标杆级；75-89 良好；60-74 及格但有明显短板；40-59 需返工；0-39 严重问题。',
+'分数要拉开差距，不要集中在 70-85 区间；发现真问题就敢打低分，overall 应与各维度分数大体吻合。',
+'',
+'# 输出格式（极其严格，违反则视为失败）',
+'- 只输出一个合法的 JSON 对象；不要任何前后缀、说明、注释或 markdown 代码块（不要 ```）。',
+'- 字段、类型、数量约束必须与下面的 schema 完全一致。',
+'- 全部使用简体中文，措辞具体、可执行，禁止空话套话。严格遵守每个字段的字数上限。',
+'- 务必保证整段 JSON 完整闭合且尽量精简：宁可每句更短，也绝不能超长导致 JSON 被截断。',
+...(withMarkers ? ['- markers 用于在图片上定位问题：box 坐标为相对整张图的比例（左上角为原点，x/y 为左上角位置，w/h 为宽高，均 0-1）。看得到图片时务必给 4-6 个，与上面的打分/改进点互相对应。'] : []),
+'',
+'{',
+'  "overall": <整数 0-100>,',
+'  "summary": "<一句话总评，≤26字>",',
+'  "dimensions": [   // 必须恰好 6 项，name 与顺序如上',
+'    { "name": "<上述六个维度名之一>", "score": <整数 0-100>, "verdict": "<一句话判断，≤12字>", "detail": "<具体问题或亮点，≤26字>" }',
+'  ],',
+...(withMarkers ? [
+'  "markers": [  // 看得到图片时给 4-6 个，定位到具体问题区域；只有链接、看不到图片时给 []',
+'    { "box": { "x": <0-1>, "y": <0-1>, "w": <0-1>, "h": <0-1> }, "dim": "<维度名>", "severity": "<高|中|低>", "note": "<该处问题，≤16字>" }',
+'  ],'
+] : []),
+'  "suggestions": [  // 恰好 3 条，按优先级从高到低排序',
+'    { "priority": "<高|中|低>", "title": "<建议标题，≤12字>", "desc": "<具体怎么做，≤28字>" }',
+'  ]',
+'}',
+'',
+'# 待评审对象',
+this.subjectPlaceholder()
+    ].join('\n');
+  };
+
+  // ★★ 单次完整评审开关 ★★
+  // 默认 false：原型内置 claude 受 1024 token 限制，必须拆成「评分卡 + 标注」两波并发。
+  // 接入你们自己的 Agent / 后端后，把它设为 true，并把下面 reviewDesign 内部换成调用你们的后端，
+  // 让它【一次返回完整 JSON（评分 + 改进清单 + markers 标注）】——三者出自同一次推理，天然一致，也无需并发。
+  SINGLE_CALL = false;
+
+  // 一次调用拿到完整 result（含 markers）。接自己后端时只改本方法内部实现即可。
+  reviewDesign = async ({ image, url }) => {
+    const tmpl = this.getExternalPrompt(true);   // 含 markers 的完整 schema
+    let content;
+    if(image){
+      const prompt = tmpl.replace(this.subjectPlaceholder(), this.subjectImageText());
+      const im = await this.compressForSend(image);
+      content = [
+        { type:'image', source:{ type:'base64', media_type:im.media_type, data:im.data } },
+        { type:'text', text: prompt }
+      ];
+    } else {
+      content = tmpl.replace(this.subjectPlaceholder(), this.subjectUrlText(url));
+    }
+    const raw = await window.claude.complete({ messages:[{ role:'user', content }] });
+    return this.parse(raw);
+  };
+
+  // 两波流程的第二波：只要标注框（与评分卡分开，避免单次 1024 token 上限把内容截断）
+  getMarkerPrompt = () => {
+    if(this.locale() === 'en'){
+      return [
+        'You are a senior designer looking at this UI design screenshot. Pick only the 4-6 most important problem areas to box on the image.',
+        'Output only a valid JSON array, with no prefix, suffix, explanation or markdown code fences (no ```).',
+        'box coords are ratios of the whole image: top-left origin; x/y are the box top-left, w/h are width/height, all 0-1, with x+w<=1 and y+h<=1. Hug the real element bounds; do not drift into empty space.',
+        'Each item: { "box": { "x": <0-1>, "y": <0-1>, "w": <0-1>, "h": <0-1> }, "dim": "<one of ' + this.DIMS.join(', ') + '>", "severity": "<high|medium|low>", "note": "<issue here, <= 40 chars>" }',
+        'Use English; notes must be specific and actionable. Output the array directly: [ {…}, {…} ]'
+      ].join('\n');
+    }
+    return [
+      '你是资深设计师，正在看这张界面设计截图。请只挑出 4-6 处最主要的问题区域，用于在图上画框定位。',
+      '只输出一个合法的 JSON 数组，不要任何前后缀、说明或 markdown 代码块（不要 ```）。',
+      'box 坐标为相对整张图的比例：左上角为原点，x/y 是框左上角位置，w/h 是框宽高，均 0-1，且 x+w≤1、y+h≤1。框要尽量贴合元素真实边界，不要偏到空白处。',
+      '每个元素：{ "box": { "x": <0-1>, "y": <0-1>, "w": <0-1>, "h": <0-1> }, "dim": "<维度，取 ' + this.DIMS.join('、') + ' 之一>", "severity": "<高|中|低>", "note": "<该处问题，≤16字>" }',
+      '全部用简体中文，note 要具体可执行。直接输出数组：[ {…}, {…} ]'
+    ].join('\n');
+  };
+
+  parseMarkers = (raw) => {
+    let t = String(raw||'').trim().replace(/```json/gi,'').replace(/```/g,'');
+    const a = t.indexOf('[');
+    if(a >= 0) t = t.slice(a);
+    const b = t.lastIndexOf(']');
+    const candidates = [];
+    if(b > 0) candidates.push(t.slice(0, b+1));
+    candidates.push(this.repairJson(t));
+    candidates.push(t);
+    for(const c of candidates){
+      try { const o = JSON.parse(c); if(Array.isArray(o)) return o; } catch(e){}
+    }
+    return [];
+  };
+
+  fetchMarkers = async (imgDataUrl) => {
+    const im = await this.compressForSend(imgDataUrl);
+    const call = window.claude.complete({ messages:[{ role:'user', content:[
+      { type:'image', source:{ type:'base64', media_type:im.media_type, data:im.data } },
+      { type:'text', text: this.getMarkerPrompt() }
+    ] }] });
+    // 45s 超时：模型卡住 / 被限流挂起时不再无限转圈
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('marker timeout')), 45000));
+    const raw = await Promise.race([call, timeout]);
+    return this.parseMarkers(raw);
+  };
+
+  // 发起标注定位（评审完成后自动调用；超时/失败可手动重试）
+  loadMarkers = (img) => {
+    if(!img || this.state.markersLoading) return;
+    this.setState({ markersLoading:true, markersFailed:false });
+    this.fetchMarkers(img)
+      .then(markers => this.setState({ markersLoading:false, markersFailed:false, hiddenMarkers:{}, markers }))
+      .catch(() => this.setState({ markersLoading:false, markersFailed:true }));
+  };
+  retryMarkers = () => this.loadMarkers(this.state.imagePreview);
+
+  copyPrompt = () => {
+    const text = this.getExternalPrompt();
+    try { navigator.clipboard.writeText(text); } catch(e){}
+    this.setState({ copied:true });
+    clearTimeout(this._c);
+    this._c = setTimeout(()=> this.setState({ copied:false }), 1800);
+  };
+
+  renderJson = () => {
+    try {
+      const result = this.parse(this.state.jsonText);
+      if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('JSON missing a valid dimensions array');
+      this.setState({ status:'done', result, error:'' });
+    } catch(err){
+      this.setState({ status:'error', error:'JSON parse failed: '+String((err && err.message) || err) });
+    }
+  };
+
+  // ---------- Agent 标注框显隐 ----------
+  visibleMarkerCount = () => {
+    const ms = this.state.markers;
+    if(!Array.isArray(ms)) return 0;
+    return ms.filter(m => m && m.box && Number(m.box.w) > 0 && Number(m.box.h) > 0).length;
+  };
+  toggleMarker = (i) => this.setState(s => {
+    const h = Object.assign({}, s.hiddenMarkers);
+    if(h[i]) delete h[i]; else h[i] = true;
+    return { hiddenMarkers: h };
+  });
+  toggleAllMarkers = () => this.setState(s => {
+    const total = this.visibleMarkerCount();
+    const hiddenCount = Object.keys(s.hiddenMarkers).length;
+    if(hiddenCount >= total){ return { hiddenMarkers: {} }; } // 当前全隐藏 → 全部显示
+    const h = {}; for(let i=0; i<total; i++) h[i] = true; return { hiddenMarkers: h }; // 否则全部隐藏
+  });
+
+  // ---------- 图上标注 ----------
+  toggleAnnotate = () => this.setState(s => ({ annotateMode: !s.annotateMode }));
+
+  _frac = (e) => {
+    const r = this.overlayRef.current.getBoundingClientRect();
+    const cl = (v) => Math.max(0, Math.min(1, v));
+    return { x: cl((e.clientX - r.left) / r.width), y: cl((e.clientY - r.top) / r.height) };
+  };
+  onCanvasDown = (e) => {
+    if(!this.state.annotateMode) return;
+    e.preventDefault();
+    const p = this._frac(e);
+    this.setState({ drawing:true, drawStart:p, drawRect:{ x:p.x, y:p.y, w:0, h:0 } });
+  };
+  onCanvasMove = (e) => {
+    if(!this.state.drawing) return;
+    e.preventDefault();
+    const p = this._frac(e), s = this.state.drawStart;
+    this.setState({ drawRect:{ x:Math.min(s.x,p.x), y:Math.min(s.y,p.y), w:Math.abs(p.x-s.x), h:Math.abs(p.y-s.y) } });
+  };
+  onCanvasUp = () => {
+    if(!this.state.drawing) return;
+    const box = this.state.drawRect;
+    this.setState({ drawing:false, drawStart:null, drawRect:null });
+    if(box && box.w > 0.015 && box.h > 0.015){
+      const id = 'a' + Date.now();
+      this.setState(s => ({ annotations: s.annotations.concat([{ id, box, comment:'', reply:'', status:'draft' }]), annotateMode:false }));
+    }
+  };
+
+  updateAnno = (id, patch) => this.setState(s => ({ annotations: s.annotations.map(a => a.id===id ? Object.assign({}, a, patch) : a) }));
+  deleteAnno = (id) => this.setState(s => ({ annotations: s.annotations.filter(a => a.id!==id) }));
+
+  // 把图片等比压缩、转 JPEG，直到 base64 落进请求大小预算（请求总上限约 256KB）
+  MAX_B64 = 200000;
+  _toBudget = (source, w, h, maxLen) => {
+    let scale = Math.min(1, 1400 / Math.max(w, h));
+    for(let i=0; i<9; i++){
+      const cw = Math.max(1, Math.round(w*scale)), ch = Math.max(1, Math.round(h*scale));
+      const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+      cv.getContext('2d').drawImage(source, 0, 0, cw, ch);
+      let q = 0.85;
+      while(q >= 0.38){
+        const b64 = cv.toDataURL('image/jpeg', q).split(',')[1];
+        if(b64.length <= maxLen) return { data:b64, media_type:'image/jpeg' };
+        q -= 0.17;
+      }
+      scale *= 0.8;
+    }
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(w*0.18)); cv.height = Math.max(1, Math.round(h*0.18));
+    cv.getContext('2d').drawImage(source, 0, 0, cv.width, cv.height);
+    return { data: cv.toDataURL('image/jpeg', 0.4).split(',')[1], media_type:'image/jpeg' };
+  };
+
+  compressForSend = (dataUrl) => new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(this._toBudget(im, im.naturalWidth, im.naturalHeight, this.MAX_B64));
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+
+  cropRegion = (box) => new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => {
+      const sx = box.x*im.naturalWidth, sy = box.y*im.naturalHeight;
+      const sw = Math.max(1, box.w*im.naturalWidth), sh = Math.max(1, box.h*im.naturalHeight);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(sw); cv.height = Math.round(sh);
+      cv.getContext('2d').drawImage(im, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+      resolve(this._toBudget(cv, cv.width, cv.height, this.MAX_B64));
+    };
+    im.onerror = reject;
+    im.src = this.state.imagePreview;
+  });
+
+  // 框选区域问 Agent 的提示词（随 UI 语言切换；接你们自己的 Agent 时，指令措辞改这里）
+  getAnnotationPrompt = (comment) => {
+    if(this.locale() === 'en'){
+      const note = (comment || '').trim() || '(the user left this empty; judge what may be wrong with this region)';
+      return [
+        'The attached image is a cropped local region of a UI design screenshot, and you can now see it.',
+        'The user\'s question / note about this region is: "' + note + '".',
+        'As a senior designer, answer it directly with specific, actionable fixes (down to size / spacing / contrast / hierarchy, e.g. "the icon is small, scale it from ~18px to 24px and enlarge the tap target").',
+        'Strict: give conclusions directly; no process or meta talk — no "I will first…", "let me look…", "I\'ll read / check…"; assume you have already analyzed it.',
+        '2-3 sentences; English plain text, no markdown, no bullet points, no prefix or suffix.'
+      ].join('\n');
+    }
+    const note = (comment || '').trim() || '（用户未填写，请你判断这块区域可能存在的问题）';
+    return [
+      '附图是一张界面设计截图里被框选出来的局部区域，你现在已经看到了它。',
+      '用户对这块区域的问题/批注是：「' + note + '」。',
+      '请作为资深设计师直接回答这个问题，并给出具体、可执行的修改建议（要落到尺寸/间距/对比/层级等可操作的程度，例如「图标偏小，建议从约 18px 放大到 24px 并加大点击热区」）。',
+      '严格要求：直接给结论，禁止任何过程性或元描述语句——不要出现「我会先…」「我将…」「让我看看」「我会先读取/查看…」之类的话，假设你已经分析完毕。',
+      '2-3 句话；简体中文纯文本，不要 markdown、不要分点符号、不要前后缀。'
+    ].join('\n');
+  };
+
+  // ★★ 对外 Agent 接口（唯一出口）★★
+  // 传入：{ image:{data:<base64>, media_type}, comment:<用户原话>, box:<相对坐标 0-1>, prompt:<已拼好的完整指令> }
+  // 返回：一段纯文本建议（Promise<string>）。
+  // 接入你们自己的评审 Agent 时，只需替换本方法内部实现（例如改成 fetch 你们的后端，把 image/comment/box 发过去），
+  // 其余 UI、裁图、状态流转都不用动。
+  askAgentAboutRegion = async ({ image, comment, box, prompt }) => {
+    const call = window.claude.complete({ messages:[{ role:'user', content:[
+      { type:'image', source:{ type:'base64', media_type:image.media_type, data:image.data } },
+      { type:'text', text: prompt }
+    ] }] });
+    // 45s 超时：被限流 / 挂起时不再无限卡在「分析中…」
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('request timeout')), 45000));
+    const reply = await Promise.race([call, timeout]);
+    return String(reply || '').trim();
+  };
+
+  sendAnnotation = async (id) => {
+    const a = this.state.annotations.find(x => x.id===id);
+    if(!a || a.status==='sending') return;
+    this.updateAnno(id, { status:'sending' });
+    try {
+      const image = await this.cropRegion(a.box);              // 把框选区域裁出来并压到请求限额内
+      const prompt = this.getAnnotationPrompt(a.comment);      // 拼好发给 Agent 的指令
+      const reply = await this.askAgentAboutRegion({ image, comment:a.comment, box:a.box, prompt }); // ★ 统一走对外接口
+      this.updateAnno(id, { status:'done', reply });
+    } catch(err){
+      this.updateAnno(id, { status:'done', reply: this.tt('canvas.sendError') + String((err && err.message)||'') });
+    }
+  };
+
+  // ---- URL → 自动截图（第三方服务，可随时替换为你们自己的截图后端）----
+  // 隐私：URL 会发到第三方 api.microlink.io 截图，因此需用户显式勾选 opt-in，且永不外发
+  // localhost / 内网 / 带凭据或 token 的链接（见 isUnsafeShotUrl）。接自己的截图后端时改这里。
+  SHOT_SERVICE = (url) => 'https://api.microlink.io/?url=' + encodeURIComponent(url) + '&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1280&viewport.height=900';
+  normalizeUrl = (raw) => { let u = String(raw||'').trim(); if(u && !/^https?:\/\//i.test(u)) u = 'https://' + u; return u; };
+  toggleShotConsent = () => this.setState(s => ({ shotConsent: !s.shotConsent }));
+  // Refuse to send anything that could leak: non-http(s), embedded credentials,
+  // localhost / private / link-local / CGNAT / .local etc. hosts, bare single-label
+  // hosts, IP literals in non-canonical notations (short-form 127.1, octal/hex
+  // octets, IPv4-mapped IPv6), or URLs carrying token-like query/hash material.
+  isUnsafeShotUrl = (raw) => {
+    let u;
+    try { u = new URL(raw); } catch(e){ return true; }
+    if(u.protocol !== 'http:' && u.protocol !== 'https:') return true;
+    if(u.username || u.password) return true;
+    const host = String(u.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+    if(!host) return true;
+    if(host === 'localhost' || host.endsWith('.localhost')) return true;
+    if(/\.(local|internal|intranet|lan|home|corp)$/.test(host)) return true;
+    if(host.indexOf('.') === -1 && host.indexOf(':') === -1) return true; // bare single-label host (incl. decimal/hex packed IPs)
+    // Private / loopback / link-local / CGNAT IPv4, given four decimal octets.
+    const privateV4 = (o) => {
+      if(o[0] === 0 || o[0] === 127 || o[0] === 10) return true;
+      if(o[0] === 192 && o[1] === 168) return true;
+      if(o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
+      if(o[0] === 169 && o[1] === 254) return true;        // link-local
+      if(o[0] === 100 && o[1] >= 64 && o[1] <= 127) return true; // CGNAT
+      return false;
+    };
+    // Decimal IPv4 literal. Only a canonical 4-octet quad (in range, no leading
+    // zeros) is treated as a public address; any other all-numeric form (127.1,
+    // 3-part, octal 0177.x, >4 parts) is non-canonical and refused — public hosts
+    // are never written this way and clients may resolve them to private IPs.
+    if(/^[0-9.]+$/.test(host)){
+      const parts = host.split('.');
+      const canonical = parts.length === 4 && parts.every(p => /^(0|[1-9]\d{0,2})$/.test(p) && Number(p) <= 255);
+      if(!canonical || privateV4(parts.map(Number))) return true;
+    }
+    // Hex/octal-flavored IPv4 (e.g. 0x7f.0.0.1) — can't trust client parsing, refuse.
+    if(/0x/i.test(host) && /^(0x[0-9a-f]+|\d+)(\.(0x[0-9a-f]+|\d+))*$/i.test(host)) return true;
+    if(host.indexOf(':') !== -1){
+      if(host === '::1' || host === '::') return true;
+      if(/^(fe80|fc|fd)/.test(host)) return true;            // IPv6 link-local / ULA
+      // IPv4-mapped / -embedded IPv6 (::ffff:127.0.0.1, ::127.0.0.1, 64:ff9b::10.0.0.1).
+      const emb = host.match(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+      if(emb){
+        const o = emb.slice(1).map(Number);
+        if(o.some(n => n > 255) || privateV4(o)) return true;
+      }
+      // Hex-form IPv4-mapped (e.g. ::ffff:7f00:0001) — refuse, can't safely resolve.
+      if(/^(::ffff:|::)[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(host)) return true;
+    }
+    const cred = /(^|[?&#])([^=&#]*(token|secret|password|passwd|pwd|api[_-]?key|access[_-]?key|apikey|auth|session|sig|signature|credential|key))=/i;
+    if(cred.test(u.search) || cred.test(u.hash)) return true;
+    return false;
+  };
+  captureUrl = async (url) => {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 28000);
+    try {
+      const resp = await fetch(this.SHOT_SERVICE(url), { signal: ctrl.signal });
+      if(!resp.ok) throw new Error('screenshot service returned ' + resp.status);
+      const blob = await resp.blob();
+      if(!blob.type || blob.type.indexOf('image/') !== 0) throw new Error('page screenshot failed');
+      const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onerror = () => rej(new Error('failed to read screenshot')); fr.onload = () => res(String(fr.result)); fr.readAsDataURL(blob); });
+      return { dataUrl, mediaType: blob.type };
+    } finally { clearTimeout(to); }
+  };
+
+  openFile = () => { if(this.fileInput.current) this.fileInput.current.click(); };
+  loadFile = (file) => {
+    if(!file || !file.type || file.type.indexOf('image/')!==0) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const data = String(r.result);
+      this.setState({ imageData: data.split(',')[1], imageMediaType: file.type, imagePreview: data, fileName: file.name });
+    };
+    r.readAsDataURL(file);
+  };
+  onFile = (e) => { const f = e.target.files && e.target.files[0]; this.loadFile(f); };
+  onDrop = (e) => { e.preventDefault(); this.setState({dragging:false}); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; this.loadFile(f); };
+  onDragOver = (e) => { e.preventDefault(); if(!this.state.dragging) this.setState({dragging:true}); };
+  onDragLeave = (e) => { e.preventDefault(); this.setState({dragging:false}); };
+
+  canGo = () => this.state.mode==='url' ? this.state.url.trim().length > 3 : !!this.state.imageData;
+
+  analyze = async () => {
+    if(!this.canGo() || this.state.status==='analyzing') return;
+    this.setState({ status:'analyzing', step:0, error:'', shooting:false });
+    clearInterval(this._t);
+    this._t = setInterval(()=> this.setState(s=>({ step:(s.step+1)%this.STEPS.length })), 1500);
+    try {
+      // 1) 取图：截图模式直接用；URL 模式先自动给网页截图（截不到再退回纯文字链接评审）
+      let imgForReview = null;
+      if(this.state.mode==='image'){
+        imgForReview = this.state.imagePreview;
+      } else {
+        const norm = this.normalizeUrl(this.state.url);
+        // Only hit the third-party screenshot service for public URLs the user opted into;
+        // otherwise review from the link text alone so nothing sensitive leaves the browser.
+        if(this.state.shotConsent && !this.isUnsafeShotUrl(norm)){
+          this.setState({ shooting:true });
+          try {
+            const shot = await this.captureUrl(norm);
+            imgForReview = shot.dataUrl;
+            this.setState({ imagePreview: shot.dataUrl, imageData: shot.dataUrl.split(',')[1], imageMediaType: shot.mediaType, fileName: norm });
+          } catch(shotErr){ imgForReview = null; }
+          this.setState({ shooting:false });
+        } else {
+          imgForReview = null;
+        }
+      }
+      const linkText = this.normalizeUrl(this.state.url);
+
+      // 2-A) 单次完整评审（接自己后端时启用）：一次返回评分 + 清单 + 标注，三者天然一致
+      if(this.SINGLE_CALL){
+        const result = await this.reviewDesign({ image: imgForReview, url: linkText });
+        if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('invalid result structure');
+        clearInterval(this._t);
+        this.setState({ status:'done', result, markers: Array.isArray(result.markers) ? result.markers : [], hiddenMarkers:{} });
+        return;
+      }
+
+      // 2-B) 默认：两波并发，绕开原型内置 1024 token 上限
+      if(imgForReview){ this.loadMarkers(imgForReview); }   // 第 2 波：标注定位，立即并发
+      const tmpl = this.getExternalPrompt(false);           // 第 1 波：评分卡（不含 markers，确保不被截断）
+      let content;
+      if(imgForReview){
+        const prompt = tmpl.replace(this.subjectPlaceholder(), this.subjectImageText());
+        const im = await this.compressForSend(imgForReview);
+        content = [
+          { type:'image', source:{ type:'base64', media_type:im.media_type, data:im.data } },
+          { type:'text', text: prompt }
+        ];
+      } else {
+        content = tmpl.replace(this.subjectPlaceholder(), this.subjectUrlText(linkText));
+      }
+      let result = null, lastErr = null;
+      for(let attempt=0; attempt<2 && !result; attempt++){
+        try {
+          const raw = await window.claude.complete({ messages:[{ role:'user', content }] });
+          const parsed = this.parse(raw);
+          if(!parsed || !Array.isArray(parsed.dimensions) || !parsed.dimensions.length) throw new Error('invalid result structure');
+          result = parsed;
+        } catch(e){ lastErr = e; }
+      }
+      if(!result) throw lastErr || new Error('parse failed');
+      clearInterval(this._t);
+      this.setState({ status:'done', result });
+    } catch(err){
+      clearInterval(this._t);
+      this.setState({ status:'error', error: String((err && err.message) || err) });
+    }
+  };
+
+  parse = (raw) => {
+    let t = String(raw||'').trim().replace(/```json/gi,'').replace(/```/g,'');
+    const a = t.indexOf('{');
+    if(a > 0) t = t.slice(a);
+    const candidates = [];
+    const b = t.lastIndexOf('}');
+    if(b > 0) candidates.push(t.slice(0, b+1)); // 截到最后一个 }
+    candidates.push(t);                          // 原样
+    candidates.push(this.repairJson(t));         // 修复截断
+    const mi = t.indexOf('"markers"');           // markers 段最易出错：丢弃它，保住评分卡
+    if(mi > 0) candidates.push(this.repairJson(t.slice(0, mi).replace(/,\s*$/,'')));
+    for(const c of candidates){
+      try { const o = JSON.parse(c); if(o && Array.isArray(o.dimensions) && o.dimensions.length) return o; } catch(e){}
+    }
+    throw new Error('could not parse the returned JSON');
+  };
+
+  // 修复被 token 上限截断的 JSON：闭合未结束的字符串、丢弃尾部残缺元素、补齐括号
+  repairJson = (s) => {
+    if((s.match(/"/g)||[]).length % 2 !== 0) s = s.slice(0, s.lastIndexOf('"')); // 截在字符串中途
+    const lastClose = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']'));
+    if(lastClose > 0) s = s.slice(0, lastClose + 1); // 丢弃最后一个残缺元素
+    s = s.replace(/,\s*$/, '');
+    let open = 0, openB = 0, inStr = false, esc = false;
+    for(const c of s){
+      if(inStr){ if(esc) esc = false; else if(c==='\\') esc = true; else if(c==='"') inStr = false; continue; }
+      if(c==='"') inStr = true;
+      else if(c==='{') open++; else if(c==='}') open--;
+      else if(c==='[') openB++; else if(c===']') openB--;
+    }
+    let tail = '';
+    while(openB-- > 0) tail += ']';
+    while(open-- > 0) tail += '}';
+    return s + tail;
+  };
+
+  reset = () => {
+    clearInterval(this._t);
+    if(this.fileInput.current) this.fileInput.current.value = '';
+    this.setState({
+      status:'input',
+      url:'',
+      shotConsent:false,
+      imageData:null,
+      imageMediaType:null,
+      imagePreview:null,
+      fileName:'',
+      jsonText:'',
+      result:null,
+      error:'',
+      annotations:[],
+      annotateMode:false,
+      drawing:false,
+      drawRect:null,
+      shooting:false,
+      markersLoading:false,
+      markersFailed:false,
+      markers:[],
+      hiddenMarkers:{}
+    });
+  };
+  retry = () => { if(this.state.mode==='json') this.renderJson(); else this.analyze(); };
+
+  gradeFor = (n) => {
+    if(n>=85) return { color:'#7BC400', label:this.tt('result.gradeExcellent') };
+    if(n>=70) return { color:'#16C8C8', label:this.tt('result.gradeGood') };
+    if(n>=55) return { color:'#FFB300', label:this.tt('result.gradePass') };
+    return { color:'#FF5747', label:this.tt('result.gradeRework') };
+  };
+  prioStyle = (p) => {
+    const v = String(p||'').trim().toLowerCase();
+    if(p==='高' || v==='high') return { bg:'#FF5747', fg:'#fff' };
+    if(p==='中' || v==='medium' || v==='mid') return { bg:'#FFB300', fg:'#16140F' };
+    return { bg:'var(--surface-2)', fg:'var(--text-2)' };
+  };
+  sevColor = (p) => {
+    const v = String(p||'').trim().toLowerCase();
+    if(p==='高' || v==='high') return '#FF5747';
+    if(p==='中' || v==='medium' || v==='mid') return '#FFB300';
+    if(p==='低' || v==='low') return '#16C8C8';
+    return '#6C3BFF';
+  };
+  pc = (v) => (Math.max(0, Math.min(1, Number(v)||0))*100).toFixed(2)+'%';
+
+  renderVals(){
+    const s = this.state;
+    const L = this.locale();
+    const T = (k) => window.TuttiI18n ? window.TuttiI18n.t(L, k) : k;
+    const primary = this.props.primary || '#6C3BFF';
+    const isUrl = s.mode==='url';
+    const tab = (on) => ({ bg: on ? '#16140F' : 'transparent', fg: on ? '#F7F3EC' : 'var(--muted)', sh: on ? '2px 2px 0 var(--shadow)' : 'none' });
+    const tU = tab(s.mode==='url'), tI = tab(s.mode==='image'), tJ = tab(s.mode==='json');
+    const dimMeta = this.DIMS.map((name,i)=>({ name, accent:this.ACCENTS[i] }));
+
+    const v = {
+      primary,
+      isInput: s.status==='input',
+      isAnalyzing: s.status==='analyzing',
+      isError: s.status==='error',
+      isDone: s.status==='done',
+      // static UI copy (i18n)
+      brandName: T('brand.name'),
+      brandSubtitle: T('brand.subtitle'),
+      reviewNext: T('header.reviewNext'),
+      inputBadge: T('input.badge'),
+      headlineLead: T('input.headlineLead'),
+      headlineHighlight: T('input.headlineHighlight'),
+      headlineTail: T('input.headlineTail'),
+      tagline: T('input.tagline'),
+      tabUrl: T('input.tabUrl'),
+      tabImg: T('input.tabImg'),
+      urlPlaceholder: T('input.urlPlaceholder'),
+      shotConsentBox: s.shotConsent ? '☑' : '☐',
+      shotConsentLabel: T('input.shotConsentLabel'),
+      toggleShotConsent: this.toggleShotConsent,
+      urlHintS1: T('input.urlHintS1'), urlHintB1: T('input.urlHintB1'), urlHintS2: T('input.urlHintS2'), urlHintB2: T('input.urlHintB2'), urlHintS3: T('input.urlHintS3'),
+      dropTitle: T('input.dropTitle'),
+      dropHint: T('input.dropHint'),
+      replaceImage: T('input.replaceImage'),
+      analyzeBtnLabel: T('input.analyze'),
+      promptHint: T('input.promptHint'),
+      promptLabel: T('input.promptLabel'),
+      dimsTitle: T('input.dimsTitle'),
+      analyzingTitle: T('analyzing.title'),
+      errorTitle: T('error.title'), errorBody: T('error.body'), errorRetry: T('error.retry'),
+      outOf: T('result.outOf'),
+      canvasTitle: T('canvas.title'), canvasSubtitle: T('canvas.subtitle'),
+      markersLoadingText: T('canvas.markersLoading'),
+      markersFailedText: T('canvas.markersFailedText'),
+      markersRetry: T('canvas.retry'),
+      agentMarkersTitle: T('canvas.agentMarkersTitle'),
+      markerHelp: T('canvas.markerHelp'),
+      myComments: T('canvas.myComments'),
+      suggestionsTitle: T('result.suggestionsTitle'), suggestionsSubtitle: T('result.suggestionsSubtitle'),
+      reviewAnother: T('result.reviewAnother'),
+      noCommentsS1: T('canvas.noCommentsS1'), noCommentsB1: T('canvas.noCommentsB1'), noCommentsS2: T('canvas.noCommentsS2'),
+      // input
+      isUrl, isImg: s.mode==='image', isJson: s.mode==='json', isLive: s.mode!=='json',
+      url: s.url,
+      setUrl: this.setUrlMode, setImg: this.setImgMode, setJson: this.setJsonMode,
+      onUrl: this.onUrl, onJson: this.onJson, jsonText: s.jsonText,
+      renderJson: this.renderJson, copyPrompt: this.copyPrompt,
+      promptText: this.getExternalPrompt(),
+      copyLabel: s.copied ? T('input.copyDone') : T('input.copyDefault'),
+      showPrompt: s.showPrompt,
+      togglePrompt: this.togglePrompt,
+      promptToggleLabel: s.showPrompt ? T('input.promptToggleHide') : T('input.promptToggleShow'),
+      previewImg: s.imagePreview ? React.createElement('img', { src: s.imagePreview, alt: 'preview', style: { display:'block', width:'100%', maxHeight:'280px', objectFit:'contain', background:'var(--surface-2)' } }) : null,
+      canRenderJson: s.jsonText.trim().length > 0,
+      urlTabBg: tU.bg, urlTabFg: tU.fg, urlTabShadow: tU.sh,
+      imgTabBg: tI.bg, imgTabFg: tI.fg, imgTabShadow: tI.sh,
+      jsonTabBg: tJ.bg, jsonTabFg: tJ.fg, jsonTabShadow: tJ.sh,
+      fileRef: this.fileInput, onFile: this.onFile, openFile: this.openFile,
+      onDrop: this.onDrop, onDragOver: this.onDragOver, onDragLeave: this.onDragLeave,
+      hasImage: !!s.imageData, noImage: !s.imageData,
+      imagePreview: s.imagePreview, fileName: s.fileName,
+      dropBorder: s.dragging ? primary : 'var(--line)', dropBg: s.dragging ? 'var(--surface-3)' : 'var(--input-bg)',
+      analyze: this.analyze,
+      goOpacity: this.canGo() ? 1 : 0.4, goCursor: this.canGo() ? 'pointer' : 'not-allowed',
+      dimMeta,
+      // analyzing
+      stepText: s.shooting ? T('analyzing.shooting') : this.STEPS[s.step],
+      // error
+      error: s.error, retry: this.retry,
+      reset: this.reset,
+      // 图上标注
+      annotateMode: s.annotateMode,
+      markersLoading: s.markersLoading,
+      markersFailed: s.markersFailed,
+      retryMarkers: this.retryMarkers,
+      toggleAnnotate: this.toggleAnnotate,
+      annotateLabel: s.annotateMode ? T('canvas.annotateOn') : T('canvas.annotateOff'),
+      annotateBtnBg: s.annotateMode ? '#6C3BFF' : 'var(--surface)',
+      annotateBtnFg: s.annotateMode ? '#fff' : 'var(--ink)',
+      overlayRef: this.overlayRef,
+      onCanvasDown: this.onCanvasDown, onCanvasMove: this.onCanvasMove, onCanvasUp: this.onCanvasUp,
+      overlayCursor: s.annotateMode ? 'crosshair' : 'default',
+      overlayTouch: s.annotateMode ? 'none' : 'auto',
+      isDrawing: !!(s.drawing && s.drawRect),
+      drawLeft: s.drawRect ? this.pc(s.drawRect.x) : '0%',
+      drawTop: s.drawRect ? this.pc(s.drawRect.y) : '0%',
+      drawW: s.drawRect ? this.pc(s.drawRect.w) : '0%',
+      drawH: s.drawRect ? this.pc(s.drawRect.h) : '0%',
+    };
+
+    if(s.result){
+      const r = s.result;
+      const overall = Math.round(Number(r.overall)||0);
+      const grade = this.gradeFor(overall);
+      const C = 2*Math.PI*86;
+      v.overall = overall;
+      v.summary = r.summary || '';
+      v.ringColor = grade.color;
+      v.gradeLabel = grade.label;
+      v.ringDash = (C*overall/100).toFixed(1)+' '+C.toFixed(1);
+      v.sourceIcon = s.mode==='json' ? '📋' : (isUrl ? '🔗' : '🖼');
+      v.sourceLabel = s.mode==='json' ? T('result.sourceJson') : (isUrl ? (s.url.trim() || T('result.sourceUrlFallback')) : (s.fileName || T('result.sourceImgFallback')));
+      v.dims = (r.dimensions||[]).slice(0,6).map((d,i)=>({
+        name: d.name || this.DIMS[i],
+        score: Math.round(Number(d.score)||0),
+        verdict: d.verdict || '',
+        detail: d.detail || '',
+        accent: this.ACCENTS[i % this.ACCENTS.length],
+      }));
+      v.suggestions = (r.suggestions||[]).map((x,i)=>{
+        const ps = this.prioStyle(x.priority);
+        return { num: String(i+1).padStart(2,'0'), priority:x.priority||'', title:x.title||'', desc:x.desc||'', prioBg:ps.bg, prioFg:ps.fg };
+      });
+
+      // 画布 + 标注（仅图片评审有原图可铺）
+      v.showCanvas = !!s.imagePreview;
+      v.canvasImg = s.imagePreview ? React.createElement('img', { src:s.imagePreview, draggable:false, style:{ display:'block', maxWidth:'100%', height:'auto', userSelect:'none', pointerEvents:'none' } }) : null;
+      v.agentMarkers = (Array.isArray(s.markers) ? s.markers : [])
+        .filter(m => m && m.box && Number(m.box.w) > 0 && Number(m.box.h) > 0)
+        .map((m,i) => {
+          const c = this.sevColor(m.severity);
+          const hidden = !!s.hiddenMarkers[i];
+          const cl = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+          let bx = cl(m.box.x), by = cl(m.box.y);
+          let bw = Math.min(cl(m.box.w), 1 - bx), bh = Math.min(cl(m.box.h), 1 - by);
+          return {
+            n:i+1, color:c, fill:c+'22',
+            left:this.pc(bx), top:this.pc(by), w:this.pc(bw), h:this.pc(bh),
+            dim:m.dim||'', note:m.note||'', severity:m.severity||'',
+            toggleTitle: T('canvas.markerToggleTitle'),
+            hidden, visible:!hidden,
+            rowOpacity: hidden ? '0.5' : '1',
+            badgeBg: hidden ? 'transparent' : c,
+            badgeFg: hidden ? c : '#fff',
+            onToggle: () => this.toggleMarker(i),
+          };
+        });
+      v.canvasMarkers = v.agentMarkers.filter(m => m.visible);
+      v.hasAgentMarkers = v.agentMarkers.length > 0;
+      v.toggleAllMarkers = this.toggleAllMarkers;
+      v.allMarkersLabel = v.canvasMarkers.length > 0 ? T('canvas.hideAll') : T('canvas.showAll');
+    }
+
+    // 用户标注（独立于 result，便于实时更新）
+    v.userAnnos = s.annotations.map((a,i) => ({
+      id:a.id, n:i+1,
+      badge: T('canvas.userBadge') + (i+1),
+      regionLabel: T('canvas.userRegionLabel').replace('{n}', i+1),
+      deleteLabel: T('canvas.delete'),
+      commentPlaceholder: T('canvas.commentPlaceholder'),
+      replyLabel: T('canvas.agentReply'),
+      left:this.pc(a.box.x), top:this.pc(a.box.y), w:this.pc(a.box.w), h:this.pc(a.box.h),
+      comment:a.comment, reply:a.reply, status:a.status,
+      isSending:a.status==='sending', hasReply:!!a.reply,
+      sendLabel: a.status==='sending' ? T('canvas.sending') : (a.reply ? T('canvas.sendAgain') : T('canvas.sendDefault')),
+      sendCursor: a.status==='sending' ? 'wait' : 'pointer',
+      sendOpacity: a.status==='sending' ? '0.75' : '1',
+      onComment: (e) => this.updateAnno(a.id, { comment:e.target.value }),
+      onSend: () => this.sendAnnotation(a.id),
+      onDelete: () => this.deleteAnno(a.id),
+    }));
+    v.hasUserAnnos = v.userAnnos.length > 0;
+    v.noUserAnnos = !v.hasUserAnnos;
+    v.markerEmpty = !v.hasAgentMarkers && !v.hasUserAnnos;
+    return v;
+  }
+}
+</script>
+</body>
+</html>

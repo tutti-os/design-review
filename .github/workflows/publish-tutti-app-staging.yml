@@ -8,10 +8,13 @@ name: Publish Tutti App Staging
 # production workflow. See publish-tutti-app.yml for details.
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       publish_catalog:
-        description: Whether to publish the staging App Center catalog after this release.
+        description: Whether to publish the staging App Center catalog after this release. Main branch pushes always publish the catalog.
         required: false
         type: boolean
         default: false
@@ -35,11 +38,11 @@ jobs:
       package_dir: build/tutti-app/package
       icon_path: build/tutti-app/package/icon.svg
       runner: ubuntu-latest
-      publish_catalog: ${{ inputs.publish_catalog }}
-      catalog_only: ${{ inputs.catalog_only }}
+      publish_catalog: ${{ github.event_name == 'push' || inputs.publish_catalog }}
+      catalog_only: ${{ github.event_name == 'workflow_dispatch' && inputs.catalog_only }}
       aws_region: ${{ vars.TUTTI_APP_RELEASES_STAGING_AWS_REGION || vars.TUTTI_APP_RELEASES_AWS_REGION }}
       aws_role_arn: ${{ vars.TUTTI_APP_RELEASES_STAGING_AWS_ROLE_ARN || vars.TUTTI_APP_RELEASES_AWS_ROLE_ARN }}
       s3_bucket: ${{ vars.TUTTI_APP_RELEASES_STAGING_S3_BUCKET || vars.TUTTI_APP_RELEASES_S3_BUCKET }}
       s3_prefix: ${{ vars.TUTTI_APP_RELEASES_STAGING_S3_PREFIX || 'tutti-app-releases-staging' }}
-      release_assets_base_url: ${{ vars.TUTTI_APP_RELEASES_STAGING_BASE_URL || vars.TUTTI_APP_RELEASES_BASE_URL }}
+      release_assets_base_url: ${{ vars.TUTTI_APP_RELEASES_STAGING_BASE_URL }}
       catalog_cloudfront_distribution_id: ${{ vars.TUTTI_APP_RELEASES_STAGING_CLOUDFRONT_DISTRIBUTION_ID || vars.TUTTI_APP_RELEASES_CLOUDFRONT_DISTRIBUTION_ID || '' }}

@@ -49,7 +49,7 @@ jobs:
     uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@f2662bf3a8735affbec52621d390644e2f4db26b
     with:
       app_id: design-review
-      package_command: corepack enable && pnpm install --frozen-lockfile && pnpm package:tutti
+      package_command: corepack enable && corepack prepare pnpm@10.26.2 --activate && pnpm install --frozen-lockfile && pnpm package:tutti
       package_dir: build/tutti-app/package
       # If App Center requires a raster icon, generate build/tutti-app/package/icon.png
       # in the packaging step and point icon_path at it instead.

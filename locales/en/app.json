@@ -24,6 +24,8 @@
     "dropTitle": "Drop a screenshot here, or click to choose",
     "dropHint": "PNG / JPG · full-page or single screen both work",
     "replaceImage": "Replace",
+    "agentProviderLabel": "Pick a critic",
+    "agentProviderHint": "Switch anytime",
     "analyze": "Start the critique →",
     "promptToggleShow": "View the prompt sent to the review agent ▾",
     "promptToggleHide": "Hide prompt ▴",
@@ -56,7 +58,8 @@
   "error": {
     "title": "The review didn't go through",
     "body": "The AI didn't return a valid result — usually a network or parsing hiccup. Trying again normally fixes it.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "home": "Back home"
   },
   "result": {
     "outOf": "/ 100",

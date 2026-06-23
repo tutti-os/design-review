@@ -1,16 +1,16 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Hard-require only the runtime-env contract variables Tutti guarantees. appId is
-# read from tutti.app.json in server.py; workspace identity is optional and not
-# part of the launch contract, so requiring it here would break startup.
-: "${TUTTI_APP_PACKAGE_DIR:?}"
-: "${TUTTI_APP_HOST:?}"
-: "${TUTTI_APP_PORT:?}"
-: "${TUTTI_APP_RUNTIME_DIR:?}"
-: "${TUTTI_APP_DATA_DIR:?}"
-: "${TUTTI_APP_LOG_DIR:?}"
-: "${TUTTI_APP_PYTHON:?}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PACKAGE_DIR="${TUTTI_APP_PACKAGE_DIR:-$SCRIPT_DIR}"
+NODE_BIN="${TUTTI_APP_NODE:-node}"
+
+export TUTTI_APP_PACKAGE_DIR="$PACKAGE_DIR"
+export TUTTI_APP_HOST="${TUTTI_APP_HOST:-127.0.0.1}"
+export TUTTI_APP_PORT="${TUTTI_APP_PORT:-8799}"
+export TUTTI_APP_DATA_DIR="${TUTTI_APP_DATA_DIR:-$PACKAGE_DIR/generated/data}"
+export TUTTI_APP_LOG_DIR="${TUTTI_APP_LOG_DIR:-$PACKAGE_DIR/generated/logs}"
+export TUTTI_APP_RUNTIME_DIR="${TUTTI_APP_RUNTIME_DIR:-$PACKAGE_DIR/generated/runtime}"
 
 mkdir -p "$TUTTI_APP_DATA_DIR" "$TUTTI_APP_LOG_DIR" "$TUTTI_APP_RUNTIME_DIR"
-exec "$TUTTI_APP_PYTHON" "$TUTTI_APP_PACKAGE_DIR/server.py"
+exec "$NODE_BIN" "$PACKAGE_DIR/server/server.js"

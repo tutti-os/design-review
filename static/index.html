@@ -73,7 +73,7 @@
         <span style="font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);">{{ brandSubtitle }}</span>
       </div>
     </div>
-    <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ showHeaderHome }}" hint-placeholder-val="{{ false }}">
       <button onClick="{{ reset }}" style="font-family:'Space Grotesk'; font-weight:600; font-size:13px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:9px 16px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ reviewNext }}</button>
     </sc-if>
   </div>
@@ -126,6 +126,26 @@
               <div style="font-size:12.5px; color:var(--muted); margin-top:5px;">{{ dropHint }}</div>
             </div>
           </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ hasProviderChoices }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding:10px; border:2px solid var(--line); border-radius:14px; background:var(--surface-2);">
+            <div style="min-width:96px;">
+              <div style="font-family:'Space Grotesk'; font-size:12.5px; font-weight:800; color:var(--ink);">{{ agentProviderLabel }}</div>
+              <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">{{ agentProviderHint }}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+              <sc-for list="{{ providerChoices }}" as="p" hint-placeholder-count="2">
+                <button onClick="{{ p.onSelect }}" style="display:flex; align-items:center; gap:7px; min-height:42px; padding:9px 12px; border:2px solid {{ p.border }}; border-radius:999px; background:{{ p.bg }}; color:{{ p.fg }}; box-shadow:{{ p.shadow }}; cursor:pointer; font-family:'Space Grotesk'; font-size:13px; font-weight:800;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:{{ p.dot }}; display:inline-block;"></span>
+                  <span>{{ p.label }}</span>
+                  <sc-if value="{{ p.selected }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:12px; color:{{ p.checkFg }};">✓</span>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </div>
         </sc-if>
 
         <button onClick="{{ analyze }}" style="width:100%; margin-top:14px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; padding:16px; border:2.5px solid var(--ink); border-radius:13px; cursor:{{ goCursor }}; background:{{ primary }}; color:#F7F3EC; box-shadow:4px 4px 0 var(--shadow); opacity:{{ goOpacity }}; transition:opacity .15s;">{{ analyzeBtnLabel }}</button>
@@ -182,7 +202,10 @@
     <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; margin:16px 0 0;">{{ errorTitle }}</h2>
     <p style="font-size:15px; color:var(--text-2); margin:12px 0 0; line-height:1.6;">{{ errorBody }}</p>
     <div style="font-size:12px; color:var(--muted-2); margin-top:12px; word-break:break-all;">{{ error }}</div>
-    <button onClick="{{ retry }}" style="margin-top:26px; font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:13px 30px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:{{ primary }}; color:#F7F3EC; box-shadow:4px 4px 0 var(--shadow);">{{ errorRetry }}</button>
+    <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:12px; margin-top:26px;">
+      <button onClick="{{ retry }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:13px 30px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:{{ primary }}; color:#F7F3EC; box-shadow:4px 4px 0 var(--shadow);">{{ errorRetry }}</button>
+      <button onClick="{{ reset }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:13px 30px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:var(--surface); color:var(--ink); box-shadow:4px 4px 0 var(--shadow);">{{ errorHome }}</button>
+    </div>
   </div>
   </sc-if>
 
@@ -385,6 +408,9 @@ class Component extends DCLogic {
       jsonText: '',
       copied: false,
       showPrompt: false,
+      agentProviders: [],
+      selectedProvider: '',
+      agentsLoading: false,
       annotateMode: false,
       annotations: [],   // { id, box:{x,y,w,h}, comment, reply, status:'draft'|'sending'|'done' }
       drawing: false,
@@ -393,8 +419,11 @@ class Component extends DCLogic {
       shooting: false,
       markersLoading: false,
       markersFailed: false,
+      markerJobId: '',
       markers: [],         // 标注框（第 2 波调用结果，独立于评分卡，便于两波并发）
       hiddenMarkers: {},   // { [index]: true } 被隐藏的 Agent 标注框
+      agentSessionId: '',
+      agentResumeToken: '',
       locale: L0,
     };
     this.DIMS = this.dimsFor(L0);
@@ -443,11 +472,281 @@ class Component extends DCLogic {
 
   componentDidMount(){
     try { document.documentElement.lang = this.state.locale; } catch(e){}
+    window.addEventListener('hashchange', this.onReviewRouteChange);
+    this.loadReviewFromRoute();
+    this.loadAgentProviders();
     if(!window.TuttiI18n) return;
     window.TuttiI18n.readHostLocale().then((L) => { if(L) this.applyLocale(L); }).catch(()=>{});
     this._unsubLocale = window.TuttiI18n.subscribeHostLocale((L) => { if(L) this.applyLocale(L); });
   }
-  componentWillUnmount(){ clearInterval(this._t); if(this._unsubLocale) this._unsubLocale(); }
+  componentWillUnmount(){
+    clearInterval(this._t);
+    clearTimeout(this._persistTimer);
+    window.removeEventListener('hashchange', this.onReviewRouteChange);
+    if(this._unsubLocale) this._unsubLocale();
+  }
+
+  reviewIdFromHash = () => {
+    const m = String(window.location.hash || '').match(/^#\/review\/([a-zA-Z0-9_-]{8,80})$/);
+    return m ? m[1] : '';
+  };
+  reviewHash = (id) => '#/review/' + encodeURIComponent(id);
+  setStateAsync = (patch) => new Promise(resolve => this.setState(patch, resolve));
+  onReviewRouteChange = () => this.loadReviewFromRoute();
+  loadReviewFromRoute = async () => {
+    const id = this.reviewIdFromHash();
+    if(!id){
+      if(this._reviewId) this.reset();
+      return;
+    }
+    if(id === this._reviewId) return;
+    this._restoringReview = true;
+    try {
+      const resp = await fetch('/api/reviews/' + encodeURIComponent(id));
+      if(!resp.ok) throw new Error(resp.status === 404 ? 'review not found' : 'failed to load review');
+      const payload = await resp.json();
+      const review = payload && payload.review;
+      this._reviewId = review && review.id ? review.id : id;
+      this.restoreReviewState((review && review.state) || {});
+    } catch(err){
+      this._reviewId = '';
+      this.setState({ status:'error', error: String((err && err.message) || err) });
+    } finally {
+      this._restoringReview = false;
+    }
+  };
+  restoreReviewState = (saved) => {
+    const mode = ['url','image','json'].indexOf(saved.mode) >= 0 ? saved.mode : 'url';
+    const locale = typeof saved.locale === 'string' ? saved.locale : this.state.locale;
+    const savedStatus = ['analyzing','done','error'].indexOf(saved.status) >= 0 ? saved.status : (saved.result ? 'done' : 'input');
+    this.DIMS = this.dimsFor(locale);
+    this.STEPS = this.stepsFor(locale);
+    try { document.documentElement.lang = locale; } catch(e){}
+    this.setState({
+      mode,
+      url: typeof saved.url === 'string' ? saved.url : '',
+      shotConsent: !!saved.shotConsent,
+      imageData: typeof saved.imageData === 'string' ? saved.imageData : null,
+      imageMediaType: typeof saved.imageMediaType === 'string' ? saved.imageMediaType : null,
+      imagePreview: typeof saved.imagePreview === 'string' ? saved.imagePreview : null,
+      fileName: typeof saved.fileName === 'string' ? saved.fileName : '',
+      dragging: false,
+      status: savedStatus,
+      result: saved.result || null,
+      error: savedStatus === 'error' && typeof saved.error === 'string' ? saved.error : '',
+      step: 0,
+      jsonText: typeof saved.jsonText === 'string' ? saved.jsonText : '',
+      copied: false,
+      showPrompt: false,
+      selectedProvider: typeof saved.selectedProvider === 'string' ? saved.selectedProvider : this.state.selectedProvider,
+      annotateMode: false,
+      annotations: Array.isArray(saved.annotations) ? saved.annotations : [],
+      drawing: false,
+      drawStart: null,
+      drawRect: null,
+      shooting: false,
+      markersLoading: false,
+      markersFailed: !!saved.markersFailed,
+      markerJobId: typeof saved.markerJobId === 'string' ? saved.markerJobId : '',
+      markers: Array.isArray(saved.markers) ? saved.markers : [],
+      hiddenMarkers: saved.hiddenMarkers && typeof saved.hiddenMarkers === 'object' && !Array.isArray(saved.hiddenMarkers) ? saved.hiddenMarkers : {},
+      reviewJobId: typeof saved.reviewJobId === 'string' ? saved.reviewJobId : '',
+      agentProvider: typeof saved.agentProvider === 'string' ? saved.agentProvider : '',
+      agentSessionId: typeof saved.agentSessionId === 'string' ? saved.agentSessionId : '',
+      agentResumeToken: typeof saved.agentResumeToken === 'string' ? saved.agentResumeToken : '',
+      locale,
+    });
+    if(savedStatus === 'analyzing'){
+      if(saved.reviewJobId) {
+        setTimeout(() => this.resumeAnalyzingReview(), 0);
+      } else {
+        setTimeout(() => {
+          this.setState({ status:'error', error:'评审任务尚未启动完成，请重新开始。' });
+          this.scheduleReviewSave();
+        }, 0);
+      }
+    }
+    if(saved.markerJobId) setTimeout(() => this.resumeMarkerJob(), 0);
+  };
+  reviewStateForSave = () => {
+    const s = this.state;
+    if(['analyzing','done','error'].indexOf(s.status) < 0 && !s.result) return null;
+    return {
+      mode: s.mode,
+      url: s.url,
+      shotConsent: s.shotConsent,
+      imageData: s.imageData,
+      imageMediaType: s.imageMediaType,
+      imagePreview: s.imagePreview,
+      fileName: s.fileName,
+      jsonText: s.mode === 'json' ? s.jsonText : '',
+      status: s.status,
+      error: s.error,
+      result: s.result,
+      reviewJobId: s.reviewJobId || '',
+      selectedProvider: s.selectedProvider,
+      agentProvider: s.agentProvider || '',
+      agentSessionId: s.agentSessionId || '',
+      agentResumeToken: s.agentResumeToken || '',
+      annotations: s.annotations,
+      markersFailed: !!s.markersFailed,
+      markerJobId: s.markerJobId || '',
+      markers: s.markers,
+      hiddenMarkers: s.hiddenMarkers,
+      locale: s.locale,
+    };
+  };
+  scheduleReviewSave = () => {
+    clearTimeout(this._persistTimer);
+    this._persistTimer = setTimeout(() => this.saveReviewState(), 0);
+  };
+  saveReviewState = async () => {
+    if(this._restoringReview) return;
+    if(this._savingReview){
+      this._pendingReviewSave = true;
+      return;
+    }
+    const state = this.reviewStateForSave();
+    if(!state) return;
+    const existingId = this._reviewId || this.reviewIdFromHash();
+    const method = existingId ? 'PATCH' : 'POST';
+    const url = existingId ? '/api/reviews/' + encodeURIComponent(existingId) : '/api/reviews';
+    this._savingReview = true;
+    try {
+      const resp = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state })
+      });
+      if(!resp.ok) throw new Error('failed to save review');
+      const payload = await resp.json();
+      const id = payload && payload.review && payload.review.id;
+      if(id){
+        this._reviewId = id;
+        const hash = this.reviewHash(id);
+        if(window.location.hash !== hash) window.history.replaceState(null, '', hash);
+      }
+      return id || '';
+    } catch(err){
+      console.warn('[design-review] review persistence failed', err);
+      return '';
+    } finally {
+      this._savingReview = false;
+      if(this._pendingReviewSave){
+        this._pendingReviewSave = false;
+        this.scheduleReviewSave();
+      }
+    }
+  };
+  clearReviewRoute = () => {
+    this._reviewId = '';
+    if(this.reviewIdFromHash()) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  };
+  loadAgentProviders = async () => {
+    this.setState({ agentsLoading:true });
+    try {
+      const resp = await fetch('/api/agents');
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(data.error || 'failed to load agents');
+      const providers = Array.isArray(data.providers) ? data.providers : [];
+      const providerIds = providers.map(p => p && p.provider).filter(Boolean);
+      const current = providerIds.indexOf(this.state.selectedProvider) >= 0 ? this.state.selectedProvider : '';
+      const selected = current || data.defaultProvider || providerIds[0] || '';
+      this.setState({ agentProviders: providers, selectedProvider: selected, agentsLoading:false });
+    } catch(err){
+      this.setState({ agentProviders: [], agentsLoading:false });
+    }
+  };
+  onProvider = (e) => this.setState({ selectedProvider: e.target.value });
+  pickProvider = (provider) => this.setState({ selectedProvider: provider });
+  agentRequestOptions = () => this.state.selectedProvider ? { provider: this.state.selectedProvider } : {};
+  startCompletionJob = async (payload) => {
+    const resp = await fetch('/api/completions', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+    const data = await resp.json().catch(() => ({}));
+    if(!resp.ok) throw new Error(data.error || 'failed to start completion job');
+    const id = data && data.job && data.job.id;
+    if(!id) throw new Error('completion job id missing');
+    return id;
+  };
+  readCompletionJob = async (id) => {
+    const resp = await fetch('/api/completions/' + encodeURIComponent(id));
+    const data = await resp.json().catch(() => ({}));
+    if(!resp.ok) throw new Error(data.error || 'failed to read completion job');
+    return data.job || null;
+  };
+  waitCompletionJob = async (id) => {
+    for(;;){
+      const job = await this.readCompletionJob(id);
+      if(job && job.status === 'done') {
+        this._lastAgentProvider = (job.result && job.result.agentProvider) || '';
+        this._lastAgentSessionId = (job.result && job.result.agentSessionId) || '';
+        this._lastAgentResumeToken = (job.result && job.result.resumeToken) || '';
+        return (job.result && job.result.text) || '';
+      }
+      if(job && job.status === 'error') throw new Error(job.error || 'completion job failed');
+      await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+  };
+  completeReviewWithJob = async (payload) => {
+    const jobId = await this.startCompletionJob(payload);
+    this.setState({ reviewJobId: jobId });
+    this.scheduleReviewSave();
+    return this.waitCompletionJob(jobId);
+  };
+  completeMarkerWithJob = async (payload) => {
+    const jobId = await this.startCompletionJob(payload);
+    this.setState({ markerJobId: jobId });
+    this.scheduleReviewSave();
+    return this.waitCompletionJob(jobId);
+  };
+  resumeAnalyzingReview = async () => {
+    if(this._resumingReview || this.state.status !== 'analyzing' || !this.state.reviewJobId) return;
+    this._resumingReview = true;
+    try {
+      const raw = await this.waitCompletionJob(this.state.reviewJobId);
+      const result = this.parse(raw);
+      if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('invalid result structure');
+      clearInterval(this._t);
+      this.setState({
+        status:'done',
+        result,
+        error:'',
+        reviewJobId:'',
+        agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+        agentSessionId: this._lastAgentSessionId || '',
+        agentResumeToken: this._lastAgentResumeToken || ''
+      });
+      this.scheduleReviewSave();
+    } catch(err){
+      clearInterval(this._t);
+      this.setState({ status:'error', error: String((err && err.message) || err), reviewJobId:'' });
+      this.scheduleReviewSave();
+    } finally {
+      this._resumingReview = false;
+    }
+  };
+  resumeMarkerJob = async () => {
+    if(this._resumingMarkers || !this.state.markerJobId) return;
+    this._resumingMarkers = true;
+    this.setState({ markersLoading:true, markersFailed:false });
+    try {
+      const raw = await this.waitCompletionJob(this.state.markerJobId);
+      const markers = this.parseMarkers(raw);
+      if(!markers.length) throw new Error('marker result empty');
+      this.setState({ markersLoading:false, markersFailed:false, markerJobId:'', hiddenMarkers:{}, markers });
+      this.scheduleReviewSave();
+    } catch(err){
+      console.warn('[design-review] marker locating failed', err);
+      this.setState({ markersLoading:false, markersFailed:true, markerJobId:'' });
+      this.scheduleReviewSave();
+    } finally {
+      this._resumingMarkers = false;
+    }
+  };
 
   setUrlMode = () => this.setState({ mode:'url' });
   setImgMode = () => this.setState({ mode:'image' });
@@ -571,7 +870,7 @@ this.subjectPlaceholder()
     } else {
       content = tmpl.replace(this.subjectPlaceholder(), this.subjectUrlText(url));
     }
-    const raw = await window.claude.complete({ messages:[{ role:'user', content }] });
+    const raw = await this.completeReviewWithJob({ messages:[{ role:'user', content }], ...this.agentRequestOptions() });
     return this.parse(raw);
   };
 
@@ -612,23 +911,31 @@ this.subjectPlaceholder()
 
   fetchMarkers = async (imgDataUrl) => {
     const im = await this.compressForSend(imgDataUrl);
-    const call = window.claude.complete({ messages:[{ role:'user', content:[
+    const raw = await this.completeMarkerWithJob({ messages:[{ role:'user', content:[
       { type:'image', source:{ type:'base64', media_type:im.media_type, data:im.data } },
       { type:'text', text: this.getMarkerPrompt() }
-    ] }] });
-    // 45s 超时：模型卡住 / 被限流挂起时不再无限转圈
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('marker timeout')), 45000));
-    const raw = await Promise.race([call, timeout]);
-    return this.parseMarkers(raw);
+    ] }], ...this.agentRequestOptions() });
+    const markers = this.parseMarkers(raw);
+    if(!markers.length) throw new Error('marker result empty');
+    return markers;
   };
 
   // 发起标注定位（评审完成后自动调用；超时/失败可手动重试）
-  loadMarkers = (img) => {
+  loadMarkers = (img, runToken = this._activeRunToken) => {
     if(!img || this.state.markersLoading) return;
     this.setState({ markersLoading:true, markersFailed:false });
     this.fetchMarkers(img)
-      .then(markers => this.setState({ markersLoading:false, markersFailed:false, hiddenMarkers:{}, markers }))
-      .catch(() => this.setState({ markersLoading:false, markersFailed:true }));
+      .then(markers => {
+        if(runToken && runToken !== this._activeRunToken) return;
+        this.setState({ markersLoading:false, markersFailed:false, markerJobId:'', hiddenMarkers:{}, markers });
+        this.scheduleReviewSave();
+      })
+      .catch(err => {
+        if(runToken && runToken !== this._activeRunToken) return;
+        console.warn('[design-review] marker locating failed', err);
+        this.setState({ markersLoading:false, markersFailed:true, markerJobId:'' });
+        this.scheduleReviewSave();
+      });
   };
   retryMarkers = () => this.loadMarkers(this.state.imagePreview);
 
@@ -645,6 +952,7 @@ this.subjectPlaceholder()
       const result = this.parse(this.state.jsonText);
       if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('JSON missing a valid dimensions array');
       this.setState({ status:'done', result, error:'' });
+      this.scheduleReviewSave();
     } catch(err){
       this.setState({ status:'error', error:'JSON parse failed: '+String((err && err.message) || err) });
     }
@@ -656,17 +964,23 @@ this.subjectPlaceholder()
     if(!Array.isArray(ms)) return 0;
     return ms.filter(m => m && m.box && Number(m.box.w) > 0 && Number(m.box.h) > 0).length;
   };
-  toggleMarker = (i) => this.setState(s => {
-    const h = Object.assign({}, s.hiddenMarkers);
-    if(h[i]) delete h[i]; else h[i] = true;
-    return { hiddenMarkers: h };
-  });
-  toggleAllMarkers = () => this.setState(s => {
-    const total = this.visibleMarkerCount();
-    const hiddenCount = Object.keys(s.hiddenMarkers).length;
-    if(hiddenCount >= total){ return { hiddenMarkers: {} }; } // 当前全隐藏 → 全部显示
-    const h = {}; for(let i=0; i<total; i++) h[i] = true; return { hiddenMarkers: h }; // 否则全部隐藏
-  });
+  toggleMarker = (i) => {
+    this.setState(s => {
+      const h = Object.assign({}, s.hiddenMarkers);
+      if(h[i]) delete h[i]; else h[i] = true;
+      return { hiddenMarkers: h };
+    });
+    this.scheduleReviewSave();
+  };
+  toggleAllMarkers = () => {
+    this.setState(s => {
+      const total = this.visibleMarkerCount();
+      const hiddenCount = Object.keys(s.hiddenMarkers).length;
+      if(hiddenCount >= total){ return { hiddenMarkers: {} }; } // 当前全隐藏 → 全部显示
+      const h = {}; for(let i=0; i<total; i++) h[i] = true; return { hiddenMarkers: h }; // 否则全部隐藏
+    });
+    this.scheduleReviewSave();
+  };
 
   // ---------- 图上标注 ----------
   toggleAnnotate = () => this.setState(s => ({ annotateMode: !s.annotateMode }));
@@ -695,11 +1009,18 @@ this.subjectPlaceholder()
     if(box && box.w > 0.015 && box.h > 0.015){
       const id = 'a' + Date.now();
       this.setState(s => ({ annotations: s.annotations.concat([{ id, box, comment:'', reply:'', status:'draft' }]), annotateMode:false }));
+      this.scheduleReviewSave();
     }
   };
 
-  updateAnno = (id, patch) => this.setState(s => ({ annotations: s.annotations.map(a => a.id===id ? Object.assign({}, a, patch) : a) }));
-  deleteAnno = (id) => this.setState(s => ({ annotations: s.annotations.filter(a => a.id!==id) }));
+  updateAnno = (id, patch) => {
+    this.setState(s => ({ annotations: s.annotations.map(a => a.id===id ? Object.assign({}, a, patch) : a) }));
+    this.scheduleReviewSave();
+  };
+  deleteAnno = (id) => {
+    this.setState(s => ({ annotations: s.annotations.filter(a => a.id!==id) }));
+    this.scheduleReviewSave();
+  };
 
   // 把图片等比压缩、转 JPEG，直到 base64 落进请求大小预算（请求总上限约 256KB）
   MAX_B64 = 200000;
@@ -775,7 +1096,7 @@ this.subjectPlaceholder()
     const call = window.claude.complete({ messages:[{ role:'user', content:[
       { type:'image', source:{ type:'base64', media_type:image.media_type, data:image.data } },
       { type:'text', text: prompt }
-    ] }] });
+    ] }], ...this.agentRequestOptions() });
     // 45s 超时：被限流 / 挂起时不再无限卡在「分析中…」
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('request timeout')), 45000));
     const reply = await Promise.race([call, timeout]);
@@ -884,7 +1205,27 @@ this.subjectPlaceholder()
 
   analyze = async () => {
     if(!this.canGo() || this.state.status==='analyzing') return;
-    this.setState({ status:'analyzing', step:0, error:'', shooting:false });
+    const runToken = Date.now() + ':' + Math.random().toString(36).slice(2);
+    this._activeRunToken = runToken;
+    this._lastAgentProvider = '';
+    this._lastAgentSessionId = '';
+    this._lastAgentResumeToken = '';
+    await this.setStateAsync({
+      status:'analyzing',
+      step:0,
+      error:'',
+      shooting:false,
+      result:null,
+      reviewJobId:'',
+      markersLoading:false,
+      markersFailed:false,
+      markerJobId:'',
+      markers:[],
+      hiddenMarkers:{},
+      agentSessionId:'',
+      agentResumeToken:''
+    });
+    await this.saveReviewState();
     clearInterval(this._t);
     this._t = setInterval(()=> this.setState(s=>({ step:(s.step+1)%this.STEPS.length })), 1500);
     try {
@@ -901,8 +1242,10 @@ this.subjectPlaceholder()
           try {
             const shot = await this.captureUrl(norm);
             imgForReview = shot.dataUrl;
+            if(runToken !== this._activeRunToken) return;
             this.setState({ imagePreview: shot.dataUrl, imageData: shot.dataUrl.split(',')[1], imageMediaType: shot.mediaType, fileName: norm });
           } catch(shotErr){ imgForReview = null; }
+          if(runToken !== this._activeRunToken) return;
           this.setState({ shooting:false });
         } else {
           imgForReview = null;
@@ -915,12 +1258,23 @@ this.subjectPlaceholder()
         const result = await this.reviewDesign({ image: imgForReview, url: linkText });
         if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('invalid result structure');
         clearInterval(this._t);
-        this.setState({ status:'done', result, markers: Array.isArray(result.markers) ? result.markers : [], hiddenMarkers:{} });
+        if(runToken !== this._activeRunToken) return;
+        this.setState({
+          status:'done',
+          result,
+          markers: Array.isArray(result.markers) ? result.markers : [],
+          hiddenMarkers:{},
+          reviewJobId:'',
+          agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+          agentSessionId: this._lastAgentSessionId || '',
+          agentResumeToken: this._lastAgentResumeToken || ''
+        });
+        this.scheduleReviewSave();
         return;
       }
 
       // 2-B) 默认：两波并发，绕开原型内置 1024 token 上限
-      if(imgForReview){ this.loadMarkers(imgForReview); }   // 第 2 波：标注定位，立即并发
+      if(imgForReview){ this.loadMarkers(imgForReview, runToken); }   // 第 2 波：标注定位，立即并发
       const tmpl = this.getExternalPrompt(false);           // 第 1 波：评分卡（不含 markers，确保不被截断）
       let content;
       if(imgForReview){
@@ -936,7 +1290,7 @@ this.subjectPlaceholder()
       let result = null, lastErr = null;
       for(let attempt=0; attempt<2 && !result; attempt++){
         try {
-          const raw = await window.claude.complete({ messages:[{ role:'user', content }] });
+          const raw = await this.completeReviewWithJob({ messages:[{ role:'user', content }], ...this.agentRequestOptions() });
           const parsed = this.parse(raw);
           if(!parsed || !Array.isArray(parsed.dimensions) || !parsed.dimensions.length) throw new Error('invalid result structure');
           result = parsed;
@@ -944,10 +1298,21 @@ this.subjectPlaceholder()
       }
       if(!result) throw lastErr || new Error('parse failed');
       clearInterval(this._t);
-      this.setState({ status:'done', result });
+      if(runToken !== this._activeRunToken) return;
+      this.setState({
+        status:'done',
+        result,
+        reviewJobId:'',
+        agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+        agentSessionId: this._lastAgentSessionId || '',
+        agentResumeToken: this._lastAgentResumeToken || ''
+      });
+      this.scheduleReviewSave();
     } catch(err){
       clearInterval(this._t);
-      this.setState({ status:'error', error: String((err && err.message) || err) });
+      if(runToken !== this._activeRunToken) return;
+      this.setState({ status:'error', error: String((err && err.message) || err), reviewJobId:'' });
+      this.scheduleReviewSave();
     }
   };
 
@@ -989,6 +1354,9 @@ this.subjectPlaceholder()
 
   reset = () => {
     clearInterval(this._t);
+    clearTimeout(this._persistTimer);
+    this._activeRunToken = '';
+    this.clearReviewRoute();
     if(this.fileInput.current) this.fileInput.current.value = '';
     this.setState({
       status:'input',
@@ -1008,8 +1376,13 @@ this.subjectPlaceholder()
       shooting:false,
       markersLoading:false,
       markersFailed:false,
+      markerJobId:'',
       markers:[],
-      hiddenMarkers:{}
+      hiddenMarkers:{},
+      reviewJobId:'',
+      agentProvider:'',
+      agentSessionId:'',
+      agentResumeToken:''
     });
   };
   retry = () => { if(this.state.mode==='json') this.renderJson(); else this.analyze(); };
@@ -1051,6 +1424,7 @@ this.subjectPlaceholder()
       isAnalyzing: s.status==='analyzing',
       isError: s.status==='error',
       isDone: s.status==='done',
+      showHeaderHome: s.status==='done' || s.status==='error',
       // static UI copy (i18n)
       brandName: T('brand.name'),
       brandSubtitle: T('brand.subtitle'),
@@ -1070,12 +1444,13 @@ this.subjectPlaceholder()
       dropTitle: T('input.dropTitle'),
       dropHint: T('input.dropHint'),
       replaceImage: T('input.replaceImage'),
+      agentProviderLabel: T('input.agentProviderLabel'),
       analyzeBtnLabel: T('input.analyze'),
       promptHint: T('input.promptHint'),
       promptLabel: T('input.promptLabel'),
       dimsTitle: T('input.dimsTitle'),
       analyzingTitle: T('analyzing.title'),
-      errorTitle: T('error.title'), errorBody: T('error.body'), errorRetry: T('error.retry'),
+      errorTitle: T('error.title'), errorBody: T('error.body'), errorRetry: T('error.retry'), errorHome: T('error.home'),
       outOf: T('result.outOf'),
       canvasTitle: T('canvas.title'), canvasSubtitle: T('canvas.subtitle'),
       markersLoadingText: T('canvas.markersLoading'),
@@ -1094,6 +1469,25 @@ this.subjectPlaceholder()
       onUrl: this.onUrl, onJson: this.onJson, jsonText: s.jsonText,
       renderJson: this.renderJson, copyPrompt: this.copyPrompt,
       promptText: this.getExternalPrompt(),
+      selectedProvider: s.selectedProvider,
+      onProvider: this.onProvider,
+      hasProviderChoices: Array.isArray(s.agentProviders) && s.agentProviders.length > 1,
+      agentProviderHint: T('input.agentProviderHint'),
+      providerChoices: (s.agentProviders || []).map((p) => {
+        const selected = p.provider === s.selectedProvider;
+        return {
+          provider: p.provider,
+          label: p.label || p.provider,
+          selected,
+          onSelect: () => this.pickProvider(p.provider),
+          bg: selected ? '#16140F' : 'var(--surface)',
+          fg: selected ? '#F7F3EC' : 'var(--ink)',
+          border: selected ? '#16140F' : 'var(--ink)',
+          shadow: selected ? '3px 3px 0 var(--shadow)' : 'none',
+          dot: selected ? this.props.primary || '#6C3BFF' : '#7BC400',
+          checkFg: selected ? '#F7F3EC' : 'var(--muted)',
+        };
+      }),
       copyLabel: s.copied ? T('input.copyDone') : T('input.copyDefault'),
       showPrompt: s.showPrompt,
       togglePrompt: this.togglePrompt,

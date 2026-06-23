@@ -24,6 +24,8 @@
     "dropTitle": "把截图拖进来，或点击选择",
     "dropHint": "PNG / JPG · 整页截图或单个界面都行",
     "replaceImage": "换一张",
+    "agentProviderLabel": "让谁来挑刺",
+    "agentProviderHint": "可随时换搭档",
     "analyze": "开始挑刺 →",
     "promptToggleShow": "查看发送给评审 Agent 的提示词 ▾",
     "promptToggleHide": "收起提示词 ▴",
@@ -56,7 +58,8 @@
   "error": {
     "title": "评审没跑通",
     "body": "AI 没能返回有效结果，多半是网络或解析问题。再试一次通常就好了。",
-    "retry": "再试一次"
+    "retry": "再试一次",
+    "home": "回到首页"
   },
   "result": {
     "outOf": "/ 100",

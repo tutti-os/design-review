@@ -21,11 +21,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Byte-compile
-        run: python3 -m py_compile server.py server_test.py scripts/package_tutti_app.py
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
 
-      - name: Unit tests
-        run: python3 server_test.py
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@10.26.2 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm check
 
       - name: Package + validate (manifest, CLI, i18n parity, theming, runtime rules)
-        run: python3 scripts/package_tutti_app.py
+        run: pnpm package:tutti

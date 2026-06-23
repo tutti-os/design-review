@@ -10,6 +10,10 @@ __pycache__/
 venv/
 env/
 
+# Node
+node_modules/
+server/dist/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -28,7 +32,7 @@ data/
 runtime/
 logs/
 
-# Built publishable package (produced by scripts/package_tutti_app.py)
+# Built publishable package
 build/
 
 # Local dev scratch (scripts/dev.py writes data/logs/runtime here)

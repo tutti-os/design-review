@@ -28,6 +28,14 @@
           "locale": {
             "type": "string",
             "description": "Output language for the report, e.g. zh-CN or en. Defaults to zh-CN."
+          },
+          "provider": {
+            "type": "string",
+            "description": "Optional local agent provider override, e.g. claude or codex."
+          },
+          "model": {
+            "type": "string",
+            "description": "Optional model override for the selected provider."
           }
         }
       },

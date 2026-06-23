@@ -3,7 +3,7 @@
   "appId": "design-review",
   "version": "0.1.0",
   "name": "设计评审",
-  "description": "评审网站或截图的设计，从六个维度打分，并生成可在图上标注、可直接照做的改进清单。",
+  "description": "检查流程、界面和体验问题。",
   "icon": {
     "type": "asset",
     "src": "icon.svg"

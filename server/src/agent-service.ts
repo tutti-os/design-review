@@ -72,7 +72,9 @@ async function runDetection(): Promise<AgentProviderSummary[]> {
       const models = detection.result?.models?.map((model) => model.id) ?? [];
       const supported = detection.result?.supported !== false;
       const detected = Boolean(detection.result);
-      const ready = detected && supported && detection.result?.authState !== "missing";
+      const authState = detection.result?.authState;
+      const authBlocked = authState === "missing" || authState === "expired";
+      const ready = detected && supported && !authBlocked;
 
       return {
         provider: detection.provider,
@@ -83,7 +85,7 @@ async function runDetection(): Promise<AgentProviderSummary[]> {
         models,
         reason:
           detection.result?.unsupportedReason ??
-          (detection.result?.authState === "missing" ? "CLI detected but authentication is missing." : undefined),
+          (ready ? undefined : authReason(authState)),
       };
     });
   } catch {
@@ -91,3 +93,9 @@ async function runDetection(): Promise<AgentProviderSummary[]> {
   }
 }
 
+function authReason(authState: string | undefined): string | undefined {
+  if (authState === "missing") return "CLI detected but authentication is missing.";
+  if (authState === "expired") return "CLI authentication has expired.";
+  if (authState === "unknown") return "CLI authentication status is unknown.";
+  return undefined;
+}

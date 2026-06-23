@@ -53,7 +53,7 @@ app.post("/api/completions", async (request, reply) => {
 
 app.get("/api/completions/:id", async (request, reply) => {
   try {
-    const job = getCompletionJob((request.params as { id?: string }).id);
+    const job = await getCompletionJob(config, (request.params as { id?: string }).id);
     if (!job) return reply.code(404).send({ error: "评审任务不存在。" });
     return { job };
   } catch (error) {

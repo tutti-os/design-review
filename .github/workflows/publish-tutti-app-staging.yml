@@ -34,7 +34,7 @@ jobs:
     uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@f2662bf3a8735affbec52621d390644e2f4db26b
     with:
       app_id: design-review
-      package_command: python3 scripts/package_tutti_app.py
+      package_command: corepack enable && pnpm install --frozen-lockfile && pnpm package:tutti
       package_dir: build/tutti-app/package
       icon_path: build/tutti-app/package/icon.svg
       runner: ubuntu-latest

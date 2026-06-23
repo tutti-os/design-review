@@ -422,6 +422,8 @@ class Component extends DCLogic {
       markerJobId: '',
       markers: [],         // 标注框（第 2 波调用结果，独立于评分卡，便于两波并发）
       hiddenMarkers: {},   // { [index]: true } 被隐藏的 Agent 标注框
+      agentSessionId: '',
+      agentResumeToken: '',
       locale: L0,
     };
     this.DIMS = this.dimsFor(L0);
@@ -489,10 +491,15 @@ class Component extends DCLogic {
     return m ? m[1] : '';
   };
   reviewHash = (id) => '#/review/' + encodeURIComponent(id);
+  setStateAsync = (patch) => new Promise(resolve => this.setState(patch, resolve));
   onReviewRouteChange = () => this.loadReviewFromRoute();
   loadReviewFromRoute = async () => {
     const id = this.reviewIdFromHash();
-    if(!id || id === this._reviewId) return;
+    if(!id){
+      if(this._reviewId) this.reset();
+      return;
+    }
+    if(id === this._reviewId) return;
     this._restoringReview = true;
     try {
       const resp = await fetch('/api/reviews/' + encodeURIComponent(id));
@@ -545,6 +552,8 @@ class Component extends DCLogic {
       hiddenMarkers: saved.hiddenMarkers && typeof saved.hiddenMarkers === 'object' && !Array.isArray(saved.hiddenMarkers) ? saved.hiddenMarkers : {},
       reviewJobId: typeof saved.reviewJobId === 'string' ? saved.reviewJobId : '',
       agentProvider: typeof saved.agentProvider === 'string' ? saved.agentProvider : '',
+      agentSessionId: typeof saved.agentSessionId === 'string' ? saved.agentSessionId : '',
+      agentResumeToken: typeof saved.agentResumeToken === 'string' ? saved.agentResumeToken : '',
       locale,
     });
     if(savedStatus === 'analyzing'){
@@ -577,6 +586,8 @@ class Component extends DCLogic {
       reviewJobId: s.reviewJobId || '',
       selectedProvider: s.selectedProvider,
       agentProvider: s.agentProvider || '',
+      agentSessionId: s.agentSessionId || '',
+      agentResumeToken: s.agentResumeToken || '',
       annotations: s.annotations,
       markersFailed: !!s.markersFailed,
       markerJobId: s.markerJobId || '',
@@ -638,7 +649,9 @@ class Component extends DCLogic {
       const data = await resp.json().catch(() => ({}));
       if(!resp.ok) throw new Error(data.error || 'failed to load agents');
       const providers = Array.isArray(data.providers) ? data.providers : [];
-      const selected = this.state.selectedProvider || data.defaultProvider || (providers[0] && providers[0].provider) || '';
+      const providerIds = providers.map(p => p && p.provider).filter(Boolean);
+      const current = providerIds.indexOf(this.state.selectedProvider) >= 0 ? this.state.selectedProvider : '';
+      const selected = current || data.defaultProvider || providerIds[0] || '';
       this.setState({ agentProviders: providers, selectedProvider: selected, agentsLoading:false });
     } catch(err){
       this.setState({ agentProviders: [], agentsLoading:false });
@@ -670,6 +683,8 @@ class Component extends DCLogic {
       const job = await this.readCompletionJob(id);
       if(job && job.status === 'done') {
         this._lastAgentProvider = (job.result && job.result.agentProvider) || '';
+        this._lastAgentSessionId = (job.result && job.result.agentSessionId) || '';
+        this._lastAgentResumeToken = (job.result && job.result.resumeToken) || '';
         return (job.result && job.result.text) || '';
       }
       if(job && job.status === 'error') throw new Error(job.error || 'completion job failed');
@@ -696,7 +711,15 @@ class Component extends DCLogic {
       const result = this.parse(raw);
       if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('invalid result structure');
       clearInterval(this._t);
-      this.setState({ status:'done', result, error:'', reviewJobId:'', agentProvider: this._lastAgentProvider || this.state.selectedProvider || '' });
+      this.setState({
+        status:'done',
+        result,
+        error:'',
+        reviewJobId:'',
+        agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+        agentSessionId: this._lastAgentSessionId || '',
+        agentResumeToken: this._lastAgentResumeToken || ''
+      });
       this.scheduleReviewSave();
     } catch(err){
       clearInterval(this._t);
@@ -898,15 +921,17 @@ this.subjectPlaceholder()
   };
 
   // 发起标注定位（评审完成后自动调用；超时/失败可手动重试）
-  loadMarkers = (img) => {
+  loadMarkers = (img, runToken = this._activeRunToken) => {
     if(!img || this.state.markersLoading) return;
     this.setState({ markersLoading:true, markersFailed:false });
     this.fetchMarkers(img)
       .then(markers => {
+        if(runToken && runToken !== this._activeRunToken) return;
         this.setState({ markersLoading:false, markersFailed:false, markerJobId:'', hiddenMarkers:{}, markers });
         this.scheduleReviewSave();
       })
       .catch(err => {
+        if(runToken && runToken !== this._activeRunToken) return;
         console.warn('[design-review] marker locating failed', err);
         this.setState({ markersLoading:false, markersFailed:true, markerJobId:'' });
         this.scheduleReviewSave();
@@ -1180,7 +1205,26 @@ this.subjectPlaceholder()
 
   analyze = async () => {
     if(!this.canGo() || this.state.status==='analyzing') return;
-    this.setState({ status:'analyzing', step:0, error:'', shooting:false, result:null, reviewJobId:'' });
+    const runToken = Date.now() + ':' + Math.random().toString(36).slice(2);
+    this._activeRunToken = runToken;
+    this._lastAgentProvider = '';
+    this._lastAgentSessionId = '';
+    this._lastAgentResumeToken = '';
+    await this.setStateAsync({
+      status:'analyzing',
+      step:0,
+      error:'',
+      shooting:false,
+      result:null,
+      reviewJobId:'',
+      markersLoading:false,
+      markersFailed:false,
+      markerJobId:'',
+      markers:[],
+      hiddenMarkers:{},
+      agentSessionId:'',
+      agentResumeToken:''
+    });
     await this.saveReviewState();
     clearInterval(this._t);
     this._t = setInterval(()=> this.setState(s=>({ step:(s.step+1)%this.STEPS.length })), 1500);
@@ -1198,8 +1242,10 @@ this.subjectPlaceholder()
           try {
             const shot = await this.captureUrl(norm);
             imgForReview = shot.dataUrl;
+            if(runToken !== this._activeRunToken) return;
             this.setState({ imagePreview: shot.dataUrl, imageData: shot.dataUrl.split(',')[1], imageMediaType: shot.mediaType, fileName: norm });
           } catch(shotErr){ imgForReview = null; }
+          if(runToken !== this._activeRunToken) return;
           this.setState({ shooting:false });
         } else {
           imgForReview = null;
@@ -1212,13 +1258,23 @@ this.subjectPlaceholder()
         const result = await this.reviewDesign({ image: imgForReview, url: linkText });
         if(!result || !Array.isArray(result.dimensions) || !result.dimensions.length) throw new Error('invalid result structure');
         clearInterval(this._t);
-        this.setState({ status:'done', result, markers: Array.isArray(result.markers) ? result.markers : [], hiddenMarkers:{}, reviewJobId:'', agentProvider: this._lastAgentProvider || this.state.selectedProvider || '' });
+        if(runToken !== this._activeRunToken) return;
+        this.setState({
+          status:'done',
+          result,
+          markers: Array.isArray(result.markers) ? result.markers : [],
+          hiddenMarkers:{},
+          reviewJobId:'',
+          agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+          agentSessionId: this._lastAgentSessionId || '',
+          agentResumeToken: this._lastAgentResumeToken || ''
+        });
         this.scheduleReviewSave();
         return;
       }
 
       // 2-B) 默认：两波并发，绕开原型内置 1024 token 上限
-      if(imgForReview){ this.loadMarkers(imgForReview); }   // 第 2 波：标注定位，立即并发
+      if(imgForReview){ this.loadMarkers(imgForReview, runToken); }   // 第 2 波：标注定位，立即并发
       const tmpl = this.getExternalPrompt(false);           // 第 1 波：评分卡（不含 markers，确保不被截断）
       let content;
       if(imgForReview){
@@ -1242,10 +1298,19 @@ this.subjectPlaceholder()
       }
       if(!result) throw lastErr || new Error('parse failed');
       clearInterval(this._t);
-      this.setState({ status:'done', result, reviewJobId:'', agentProvider: this._lastAgentProvider || this.state.selectedProvider || '' });
+      if(runToken !== this._activeRunToken) return;
+      this.setState({
+        status:'done',
+        result,
+        reviewJobId:'',
+        agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+        agentSessionId: this._lastAgentSessionId || '',
+        agentResumeToken: this._lastAgentResumeToken || ''
+      });
       this.scheduleReviewSave();
     } catch(err){
       clearInterval(this._t);
+      if(runToken !== this._activeRunToken) return;
       this.setState({ status:'error', error: String((err && err.message) || err), reviewJobId:'' });
       this.scheduleReviewSave();
     }
@@ -1290,6 +1355,7 @@ this.subjectPlaceholder()
   reset = () => {
     clearInterval(this._t);
     clearTimeout(this._persistTimer);
+    this._activeRunToken = '';
     this.clearReviewRoute();
     if(this.fileInput.current) this.fileInput.current.value = '';
     this.setState({
@@ -1314,7 +1380,9 @@ this.subjectPlaceholder()
       markers:[],
       hiddenMarkers:{},
       reviewJobId:'',
-      agentProvider:''
+      agentProvider:'',
+      agentSessionId:'',
+      agentResumeToken:''
     });
   };
   retry = () => { if(this.state.mode==='json') this.renderJson(); else this.analyze(); };

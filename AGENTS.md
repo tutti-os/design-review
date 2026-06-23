@@ -55,10 +55,11 @@ Local run:
 
 ```sh
 RUN="$(mktemp -d)"
+WORKSPACE_ROOT="$(cd .. && pwd)"
 pnpm build
 TUTTI_APP_PACKAGE_DIR="$PWD" TUTTI_APP_HOST=127.0.0.1 TUTTI_APP_PORT=8799 \
 TUTTI_APP_DATA_DIR="$RUN/data" TUTTI_APP_LOG_DIR="$RUN/logs" \
-TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_WORKSPACE_ROOT="/Users/wwcome/work/demo" \
+TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_WORKSPACE_ROOT="$WORKSPACE_ROOT" \
 TUTTI_APP_NODE="$(command -v node)" ./bootstrap.sh
 ```
 
@@ -66,9 +67,10 @@ Development run:
 
 ```sh
 RUN="$(mktemp -d)"
+WORKSPACE_ROOT="$(cd .. && pwd)"
 TUTTI_APP_PACKAGE_DIR="$PWD" TUTTI_APP_HOST=127.0.0.1 TUTTI_APP_PORT=8799 \
 TUTTI_APP_DATA_DIR="$RUN/data" TUTTI_APP_LOG_DIR="$RUN/logs" \
-TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_WORKSPACE_ROOT="/Users/wwcome/work/demo" \
+TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_WORKSPACE_ROOT="$WORKSPACE_ROOT" \
 pnpm dev
 ```
 
@@ -146,5 +148,5 @@ manifests, docs, icon, and locale files into `build/tutti-app/package`, marks
 ```sh
 pnpm check
 pnpm package:tutti
-python3 /Users/wwcome/.codex/plugins/cache/tutti-agent-skills/tutti/0.2.8/skills/tutti-workspace-app-factory/scripts/validate_tutti_app_package.py build/tutti-app/package
+python3 ./scripts/validate_tutti_app_package.py build/tutti-app/package
 ```

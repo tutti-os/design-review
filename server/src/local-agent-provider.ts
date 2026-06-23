@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 
 import type { AgentEvent } from "@tutti-os/agent-acp-kit";
 
@@ -49,7 +49,12 @@ export async function runLocalAgentCompletion(input: CompletionRunInput): Promis
       prompt: input.prompt,
       model: stripProviderPrefix(input.model?.trim() || "default", provider),
       timeoutMs: input.timeoutMs,
-      extraAllowedDirs: [input.runDir, input.config.runtimeDir],
+      extraAllowedDirs: [
+        input.runDir,
+        input.config.runtimeDir,
+        input.config.dataDir,
+        ...(input.config.workspaceRoot ? [input.config.workspaceRoot] : []),
+      ],
       signal: controller.signal,
     })) {
       const mapped = mapAgentEvent(event);
@@ -58,10 +63,15 @@ export async function runLocalAgentCompletion(input: CompletionRunInput): Promis
       if (mapped.type === "done") {
         sessionId = mapped.sessionId ?? sessionId;
         resumeToken = mapped.resumeToken ?? resumeToken;
-        if (mapped.status === "failed") {
-          throw new Error(`local-agent ${provider} failed${typeof mapped.exitCode === "number" ? ` with exit code ${mapped.exitCode}` : ""}`);
+        if (mapped.status && mapped.status !== "completed") {
+          throw new Error(
+            `local-agent ${provider} ${mapped.status}${typeof mapped.exitCode === "number" ? ` with exit code ${mapped.exitCode}` : ""}`,
+          );
         }
       }
+    }
+    if (controller.signal.aborted) {
+      throw new AgentTimeoutError("等待评审 Agent 返回结果超时。");
     }
   } catch (error) {
     if (controller.signal.aborted) {
@@ -71,6 +81,7 @@ export async function runLocalAgentCompletion(input: CompletionRunInput): Promis
   } finally {
     clearTimeout(timer);
     await localAgentRuntime.cancel(input.runId).catch(() => undefined);
+    await rm(input.runDir, { recursive: true, force: true }).catch(() => undefined);
   }
 
   return { text: text.trim(), provider, sessionId, resumeToken };

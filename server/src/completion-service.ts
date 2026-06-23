@@ -38,6 +38,7 @@ export async function completePayload(config: RuntimeConfig, payload: CompletePa
     text: normalizeCompletionText(session.text, completionType),
     agentSessionId: session.sessionId ?? runId,
     agentProvider: session.provider,
+    resumeToken: session.resumeToken,
   };
 }
 
@@ -125,4 +126,3 @@ function cleanString(value: unknown): string | undefined {
   const text = String(value ?? "").trim();
   return text || undefined;
 }
-

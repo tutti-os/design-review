@@ -49,7 +49,7 @@ jobs:
     uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@f2662bf3a8735affbec52621d390644e2f4db26b
     with:
       app_id: design-review
-      package_command: corepack enable && corepack prepare pnpm@10.26.2 --activate && pnpm install --frozen-lockfile && pnpm package:tutti
+      package_command: pnpm install --frozen-lockfile && pnpm package:tutti
       package_dir: build/tutti-app/package
       # If App Center requires a raster icon, generate build/tutti-app/package/icon.png
       # in the packaging step and point icon_path at it instead.
@@ -58,6 +58,7 @@ jobs:
       release_bump: ${{ inputs.release_bump }}
       create_release_tag: ${{ !inputs.catalog_only }}
       runner: ubuntu-latest
+      pnpm_version: 10.26.2
       publish_catalog: ${{ inputs.publish_catalog }}
       catalog_only: ${{ inputs.catalog_only }}
       aws_region: ${{ vars.TUTTI_APP_RELEASES_PRODUCTION_AWS_REGION || vars.TUTTI_APP_RELEASES_AWS_REGION }}

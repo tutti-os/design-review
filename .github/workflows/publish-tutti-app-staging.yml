@@ -34,10 +34,11 @@ jobs:
     uses: tutti-os/tutti/.github/workflows/publish-tutti-app-release.yml@f2662bf3a8735affbec52621d390644e2f4db26b
     with:
       app_id: design-review
-      package_command: corepack enable && corepack prepare pnpm@10.26.2 --activate && pnpm install --frozen-lockfile && pnpm package:tutti
+      package_command: pnpm install --frozen-lockfile && pnpm package:tutti
       package_dir: build/tutti-app/package
       icon_path: build/tutti-app/package/icon.svg
       runner: ubuntu-latest
+      pnpm_version: 10.26.2
       publish_catalog: ${{ github.event_name == 'push' || inputs.publish_catalog }}
       catalog_only: ${{ github.event_name == 'workflow_dispatch' && inputs.catalog_only }}
       aws_region: ${{ vars.TUTTI_APP_RELEASES_STAGING_AWS_REGION || vars.TUTTI_APP_RELEASES_AWS_REGION }}

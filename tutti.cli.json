@@ -58,8 +58,9 @@
         "type": "object",
         "properties": {
           "limit": {
-            "type": "number",
-            "description": "Optional maximum number of reviews to return (most recent first)."
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional maximum number of reviews to return (most recent first). Must be a positive integer."
           }
         }
       },
@@ -87,6 +88,7 @@
           },
           "format": {
             "type": "string",
+            "enum": ["md", "json"],
             "description": "Export format: md | json (default md)."
           }
         },

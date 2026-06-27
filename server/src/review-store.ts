@@ -48,11 +48,30 @@ export async function createReview(config: RuntimeConfig, body: unknown): Promis
 export async function readReview(config: RuntimeConfig, rawId: unknown): Promise<StoredReview | null> {
   const id = normalizeReviewId(rawId);
   try {
-    return JSON.parse(await readFile(reviewFilePath(config, id), "utf8")) as StoredReview;
+    return normalizeStoredReview(JSON.parse(await readFile(reviewFilePath(config, id), "utf8")));
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
     throw error;
   }
+}
+
+/**
+ * Validate and normalize an untrusted, persisted review object into the
+ * `StoredReview` shape. Returns null when the record is unusable (missing/invalid
+ * id or non-object payload). Used before summarizing, listing, or exporting so a
+ * corrupt file can never produce a bad filename or crash a read.
+ */
+function normalizeStoredReview(raw: unknown): StoredReview | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  if (typeof record.id !== "string" || !REVIEW_ID_PATTERN.test(record.id)) return null;
+  const createdAt = typeof record.createdAt === "string" ? record.createdAt : "";
+  const updatedAt = typeof record.updatedAt === "string" ? record.updatedAt : createdAt;
+  const state =
+    record.state && typeof record.state === "object" && !Array.isArray(record.state)
+      ? (record.state as Record<string, unknown>)
+      : {};
+  return { id: record.id, createdAt, updatedAt: updatedAt || createdAt, state };
 }
 
 export async function updateReview(config: RuntimeConfig, rawId: unknown, body: unknown): Promise<StoredReview | null> {
@@ -111,8 +130,8 @@ export async function listReviews(config: RuntimeConfig): Promise<ReviewSummary[
   for (const entry of entries) {
     if (!entry.endsWith(".json")) continue;
     try {
-      const review = JSON.parse(await readFile(path.join(dir, entry), "utf8")) as StoredReview;
-      if (review && typeof review.id === "string") summaries.push(summarizeReview(review));
+      const review = normalizeStoredReview(JSON.parse(await readFile(path.join(dir, entry), "utf8")));
+      if (review) summaries.push(summarizeReview(review));
     } catch {
       // Skip unreadable/corrupt review files rather than failing the whole listing.
       continue;

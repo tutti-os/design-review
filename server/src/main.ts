@@ -71,7 +71,7 @@ app.post("/api/reviews", async (request, reply) => {
 
 app.get("/api/reviews", async (_request, reply) => {
   try {
-    return { reviews: await listReviews(config) };
+    return reply.header("Cache-Control", "no-store").send({ reviews: await listReviews(config) });
   } catch (error) {
     return sendApiError(reply, error, "读取评审历史失败。");
   }

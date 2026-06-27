@@ -419,6 +419,9 @@
       <button onClick="{{ exportJson }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:14px 28px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:var(--surface); color:var(--ink); box-shadow:4px 4px 0 var(--shadow);">{{ exportJsonLabel }}</button>
       <button onClick="{{ reset }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:14px 32px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:#16140F; color:#F7F3EC; box-shadow:4px 4px 0 {{ primary }};">{{ reviewAnother }}</button>
     </div>
+    <sc-if value="{{ exportHasError }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:14px; text-align:center; font-size:13px; color:#FF5747;">{{ exportError }}</div>
+    </sc-if>
   </div>
   </sc-if>
 
@@ -471,6 +474,7 @@ class Component extends DCLogic {
       historyLoading: false,
       historyError: '',
       historyItems: [],
+      exportError: '',
       locale: L0,
     };
     this.DIMS = this.dimsFor(L0);
@@ -584,6 +588,7 @@ class Component extends DCLogic {
       step: 0,
       jsonText: typeof saved.jsonText === 'string' ? saved.jsonText : '',
       copied: false,
+      exportError: '',
       showPrompt: false,
       selectedProvider: typeof saved.selectedProvider === 'string' ? saved.selectedProvider : this.state.selectedProvider,
       annotateMode: false,
@@ -725,14 +730,33 @@ class Component extends DCLogic {
   exportReview = async (format) => {
     let id = this._reviewId || this.reviewIdFromHash();
     if(!id) id = await this.saveReviewState();
-    if(!id) return;
-    const a = document.createElement('a');
-    a.href = '/api/reviews/' + encodeURIComponent(id) + '/export?format=' + encodeURIComponent(format);
-    a.rel = 'noopener';
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if(!id){ this.setState({ exportError: this.tt('result.exportFailed') }); return; }
+    this.setState({ exportError: '' });
+    let objUrl = '';
+    try {
+      const resp = await fetch('/api/reviews/' + encodeURIComponent(id) + '/export?format=' + encodeURIComponent(format));
+      if(!resp.ok){
+        let msg = '';
+        try { const data = await resp.json(); msg = data && data.error; } catch(e){}
+        throw new Error(msg || ('HTTP ' + resp.status));
+      }
+      const blob = await resp.blob();
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const filename = (match && match[1]) || ('design-review-' + id.slice(0,8) + '.' + (format === 'json' ? 'json' : 'md'));
+      objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch(err){
+      this.setState({ exportError: this.tt('result.exportFailed') + ' ' + String((err && err.message) || err) });
+    } finally {
+      if(objUrl) setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+    }
   };
   loadAgentProviders = async () => {
     this.setState({ agentsLoading:true });
@@ -1550,6 +1574,8 @@ this.subjectPlaceholder()
       }),
       exportMd: () => this.exportReview('md'),
       exportJson: () => this.exportReview('json'),
+      exportHasError: !!s.exportError,
+      exportError: s.exportError,
       exportMdLabel: T('result.exportMd'),
       exportJsonLabel: T('result.exportJson'),
       inputBadge: T('input.badge'),

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -113,6 +113,27 @@ test("create, list, and export round-trip through the data dir", async () => {
     assert.equal(parsed.id, created.id);
 
     assert.equal(await exportReview(config, "missingidxxxx", "md"), null);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("listReviews skips corrupt or malformed review files", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "dr-store-"));
+  try {
+    const config = configWith(dir);
+    const reviewsDir = path.join(dir, "reviews");
+    await mkdir(reviewsDir, { recursive: true });
+    const valid = await createReview(config, { state: sampleReview.state });
+    // not JSON, an array, an object with no id, and an object with an invalid id
+    await writeFile(path.join(reviewsDir, "broken.json"), "{not json", "utf8");
+    await writeFile(path.join(reviewsDir, "array.json"), "[]", "utf8");
+    await writeFile(path.join(reviewsDir, "noid.json"), JSON.stringify({ state: {} }), "utf8");
+    await writeFile(path.join(reviewsDir, "badid.json"), JSON.stringify({ id: "x", state: {} }), "utf8");
+
+    const list = await listReviews(config);
+    assert.equal(list.length, 1);
+    assert.equal(list[0].id, valid.id);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

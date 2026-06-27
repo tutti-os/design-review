@@ -87,7 +87,8 @@
     "suggestionsSubtitle": "按优先级排好了，从上往下照着改。",
     "reviewAnother": "↺ 再评审一个",
     "exportMd": "⬇ 导出 Markdown",
-    "exportJson": "⬇ 导出 JSON"
+    "exportJson": "⬇ 导出 JSON",
+    "exportFailed": "导出失败，请重试。"
   },
   "canvas": {
     "title": "在设计上标注",

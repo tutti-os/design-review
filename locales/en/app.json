@@ -87,7 +87,8 @@
     "suggestionsSubtitle": "Sorted by priority — work top to bottom.",
     "reviewAnother": "↺ Review another",
     "exportMd": "⬇ Export Markdown",
-    "exportJson": "⬇ Export JSON"
+    "exportJson": "⬇ Export JSON",
+    "exportFailed": "Export failed, please retry."
   },
   "canvas": {
     "title": "Annotate on the design",

@@ -68,10 +68,19 @@ export async function cliReview(config: RuntimeConfig, payload: unknown) {
 
 export async function cliHistory(config: RuntimeConfig, payload: unknown) {
   const input = cliCommandInput(payload);
+  const limit = normalizeHistoryLimit(input.limit);
   const reviews = await listReviews(config);
-  const limitRaw = Number(input.limit);
-  const limited = Number.isFinite(limitRaw) && limitRaw > 0 ? reviews.slice(0, Math.floor(limitRaw)) : reviews;
+  const limited = limit === undefined ? reviews : reviews.slice(0, limit);
   return { kind: "json", value: { count: limited.length, total: reviews.length, reviews: limited } };
+}
+
+function normalizeHistoryLimit(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    throw new BadRequestError("limit must be a positive integer.");
+  }
+  return num;
 }
 
 export async function cliExport(config: RuntimeConfig, payload: unknown) {

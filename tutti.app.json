@@ -3,7 +3,7 @@
   "appId": "design-review",
   "version": "0.1.0",
   "name": "设计评审",
-  "description": "检查流程、界面和体验问题。",
+  "description": "检查流程、界面和体验问题，辅助发现设计风险。",
   "icon": {
     "type": "asset",
     "src": "icon.svg"
@@ -20,8 +20,16 @@
     "minWidth": 860,
     "minHeight": 560
   },
-  "author": {
-    "name": "Tutti"
+  "authors": [
+    {
+      "name": "2042217959",
+      "avatarUrl": "https://github.com/2042217959.png",
+      "url": "https://github.com/2042217959"
+    }
+  ],
+  "source": {
+    "type": "github",
+    "url": "https://github.com/tutti-os/design-review"
   },
   "tags": ["design", "review", "critique", "workspace", "ai"],
   "localizationInfo": {

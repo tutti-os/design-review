@@ -51,6 +51,61 @@
       }
     },
     {
+      "path": ["history"],
+      "summary": "List saved design reviews",
+      "description": "List previously saved design reviews (most recent first) so callers can browse review history. Each entry includes id, source, overall score, status, and timestamps. Use the id with the export command to retrieve the full report.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional maximum number of reviews to return (most recent first). Must be a positive integer."
+          }
+        }
+      },
+      "output": {
+        "defaultMode": "json",
+        "json": true
+      },
+      "handler": {
+        "kind": "http",
+        "method": "POST",
+        "path": "/tutti/cli/history",
+        "timeoutMs": 20000
+      }
+    },
+    {
+      "path": ["export"],
+      "summary": "Export a saved design review",
+      "description": "Export a saved design review as Markdown or JSON. Provide the review id (from the history command) and an optional format (md | json, default md). Returns the filename and the rendered content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the saved review to export (from the history command)."
+          },
+          "format": {
+            "type": "string",
+            "enum": ["md", "json"],
+            "description": "Export format: md | json (default md)."
+          }
+        },
+        "required": ["id"]
+      },
+      "output": {
+        "defaultMode": "json",
+        "json": true
+      },
+      "handler": {
+        "kind": "http",
+        "method": "POST",
+        "path": "/tutti/cli/export",
+        "timeoutMs": 20000
+      }
+    },
+    {
       "path": ["status"],
       "summary": "Report design-review service status",
       "description": "Return the app id, version, configured agent provider and its availability, so callers can discover the capability and check readiness before invoking review.",

@@ -4,7 +4,20 @@
     "subtitle": "AI Design Critique"
   },
   "header": {
-    "reviewNext": "↺ Review next"
+    "reviewNext": "↺ Review next",
+    "history": "🕘 History"
+  },
+  "history": {
+    "title": "Review history",
+    "subtitle": "Tap any entry to reopen the full report.",
+    "loading": "Loading history…",
+    "empty": "No reviews yet. Each finished review is saved here automatically.",
+    "untitled": "Untitled review",
+    "noSummary": "No verdict yet",
+    "statusAnalyzing": "Analyzing",
+    "statusDone": "Done",
+    "statusError": "Failed",
+    "statusInput": "Draft"
   },
   "input": {
     "badge": "Your pocket AI design director",
@@ -72,7 +85,10 @@
     "sourceImgFallback": "Screenshot review",
     "suggestionsTitle": "Fix list",
     "suggestionsSubtitle": "Sorted by priority — work top to bottom.",
-    "reviewAnother": "↺ Review another"
+    "reviewAnother": "↺ Review another",
+    "exportMd": "⬇ Export Markdown",
+    "exportJson": "⬇ Export JSON",
+    "exportFailed": "Export failed, please retry."
   },
   "canvas": {
     "title": "Annotate on the design",

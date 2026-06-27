@@ -6,9 +6,9 @@ import Fastify from "fastify";
 import { createRuntimeConfig } from "./config.js";
 import { BadRequestError, AgentTimeoutError } from "./errors.js";
 import { completePayload } from "./completion-service.js";
-import { cliReview, cliStatus } from "./cli-service.js";
+import { cliExport, cliHistory, cliReview, cliStatus } from "./cli-service.js";
 import { detectAgentProviders, pickDefaultProvider, warmAgentProviders } from "./agent-service.js";
-import { createReview, readReview, updateReview } from "./review-store.js";
+import { createReview, exportReview, listReviews, normalizeExportFormat, readReview, updateReview } from "./review-store.js";
 import { getCompletionJob, startCompletionJob } from "./completion-jobs.js";
 
 const I18N_PLACEHOLDER = "<!--__TUTTI_I18N__-->";
@@ -69,6 +69,29 @@ app.post("/api/reviews", async (request, reply) => {
   }
 });
 
+app.get("/api/reviews", async (_request, reply) => {
+  try {
+    return reply.header("Cache-Control", "no-store").send({ reviews: await listReviews(config) });
+  } catch (error) {
+    return sendApiError(reply, error, "读取评审历史失败。");
+  }
+});
+
+app.get("/api/reviews/:id/export", async (request, reply) => {
+  try {
+    const format = normalizeExportFormat((request.query as { format?: string } | undefined)?.format);
+    const result = await exportReview(config, (request.params as { id?: string }).id, format);
+    if (!result) return reply.code(404).send({ error: "评审结果不存在。" });
+    return reply
+      .header("Cache-Control", "no-store")
+      .header("Content-Disposition", `attachment; filename="${result.filename}"`)
+      .type(result.contentType)
+      .send(result.body);
+  } catch (error) {
+    return sendApiError(reply, error, "导出评审结果失败。");
+  }
+});
+
 app.get("/api/reviews/:id", async (request, reply) => {
   try {
     const review = await readReview(config, (request.params as { id?: string }).id);
@@ -102,6 +125,22 @@ app.post("/tutti/cli/review", async (request, reply) => {
     return await cliReview(config, request.body);
   } catch (error) {
     return sendCliError(reply, error, "design-review review failed.");
+  }
+});
+
+app.post("/tutti/cli/history", async (request, reply) => {
+  try {
+    return await cliHistory(config, request.body);
+  } catch (error) {
+    return sendCliError(reply, error, "design-review history failed.");
+  }
+});
+
+app.post("/tutti/cli/export", async (request, reply) => {
+  try {
+    return await cliExport(config, request.body);
+  } catch (error) {
+    return sendCliError(reply, error, "design-review export failed.");
   }
 });
 

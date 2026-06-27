@@ -82,8 +82,18 @@ pnpm dev
 - `POST /api/complete` — Web bridge. Body `{ "messages": [...] }` with optional
   `provider` / `model`. Returns `{ "text": "...", "agentSessionId": "...",
   "agentProvider": "..." }`.
+- `POST /api/reviews` / `GET /api/reviews/:id` / `PATCH /api/reviews/:id` —
+  create/read/update a persisted review (`TUTTI_APP_DATA_DIR/reviews/<id>.json`).
+- `GET /api/reviews` — list saved review summaries (most recent first) for the
+  in-app History panel. Returns `{ "reviews": [ <summary> ] }`.
+- `GET /api/reviews/:id/export?format=md|json` — download a saved review as
+  Markdown (default) or JSON, with a `Content-Disposition: attachment` filename.
 - `POST /tutti/cli/review` — CLI `review` handler. Returns
   `{ "kind": "json", "value": <design report> }`.
+- `POST /tutti/cli/history` — CLI `history` handler. Returns
+  `{ "kind": "json", "value": { count, total, reviews } }`.
+- `POST /tutti/cli/export` — CLI `export` handler. Body `{ id, format }`. Returns
+  `{ "kind": "json", "value": { id, format, filename, content } }`.
 - `POST /tutti/cli/status` — CLI `status` handler. Reports ACP Kit provider
   readiness; `ok` is true only when a ready local provider exists.
 
@@ -110,6 +120,8 @@ Other Tutti apps and agents can call:
 "$TUTTI_CLI" --json design-review review --url https://example.com --locale en
 "$TUTTI_CLI" --json design-review review --image-path /abs/screen.png --strictness strict
 "$TUTTI_CLI" --json design-review review --url https://example.com --provider codex
+"$TUTTI_CLI" --json design-review history --limit 20
+"$TUTTI_CLI" --json design-review export --id <review-id> --format md
 ```
 
 ## Internationalization

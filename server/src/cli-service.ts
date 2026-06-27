@@ -5,6 +5,7 @@ import { extractJsonText, isJsonReviewText } from "./json-utils.js";
 import { runLocalAgentCompletion } from "./local-agent-provider.js";
 import { validateImagePath } from "./image-store.js";
 import { buildReviewPrompt, normalizeLocale, normalizeStrictness } from "./review-prompt.js";
+import { exportReview, listReviews, normalizeExportFormat } from "./review-store.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -63,6 +64,33 @@ export async function cliReview(config: RuntimeConfig, payload: unknown) {
     throw new Error("Agent 没有返回完整的设计评审 JSON。");
   }
   return { kind: "json", value: JSON.parse(extractJsonText(completion.text)) };
+}
+
+export async function cliHistory(config: RuntimeConfig, payload: unknown) {
+  const input = cliCommandInput(payload);
+  const limit = normalizeHistoryLimit(input.limit);
+  const reviews = await listReviews(config);
+  const limited = limit === undefined ? reviews : reviews.slice(0, limit);
+  return { kind: "json", value: { count: limited.length, total: reviews.length, reviews: limited } };
+}
+
+function normalizeHistoryLimit(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    throw new BadRequestError("limit must be a positive integer.");
+  }
+  return num;
+}
+
+export async function cliExport(config: RuntimeConfig, payload: unknown) {
+  const input = cliCommandInput(payload);
+  const id = cleanString(input.id);
+  if (!id) throw new BadRequestError("Provide the review id to export.");
+  const format = normalizeExportFormat(input.format);
+  const result = await exportReview(config, id, format);
+  if (!result) throw new BadRequestError(`Review ${id} was not found.`);
+  return { kind: "json", value: { id, format, filename: result.filename, content: result.body } };
 }
 
 function cliCommandInput(payload: unknown): Record<string, unknown> {

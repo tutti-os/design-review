@@ -66,6 +66,75 @@ Notes:
   If the page is unreachable, the agent should report `overall: 0` instead of
   guessing.
 
+## `design-review history`
+
+List previously saved design reviews (most recent first) so callers can browse
+review history. Reviews are saved by the web UI under `TUTTI_APP_DATA_DIR/reviews`;
+each entry is summarized here. Use an `id` with `design-review export` to retrieve
+the full report.
+
+Inputs:
+
+- `--limit <number>` — optional maximum number of reviews to return (most recent first).
+
+Output `value`:
+
+```json
+{
+  "count": 1,
+  "total": 1,
+  "reviews": [
+    {
+      "id": "0464db2a-0058-4608-a9ca-52086b47759a",
+      "createdAt": "2026-06-27T14:34:41.829Z",
+      "updatedAt": "2026-06-27T14:34:41.829Z",
+      "mode": "url",
+      "source": "https://example.com",
+      "status": "done",
+      "overall": 82,
+      "summary": "Clear hierarchy, weak conversion"
+    }
+  ]
+}
+```
+
+Example:
+
+```sh
+"$TUTTI_CLI" --json design-review history --limit 20
+```
+
+## `design-review export`
+
+Export a saved design review as Markdown or JSON. Provide the review `id` (from
+`design-review history`) and an optional `format`.
+
+Inputs:
+
+- `--id <string>` — id of the saved review to export (required).
+- `--format <string>` — `md` | `json` (default `md`).
+
+Output `value`:
+
+```json
+{
+  "id": "0464db2a-0058-4608-a9ca-52086b47759a",
+  "format": "md",
+  "filename": "design-review-0464db2a.md",
+  "content": "# Design Review Report\n..."
+}
+```
+
+Example:
+
+```sh
+"$TUTTI_CLI" --json design-review export --id 0464db2a-0058-4608-a9ca-52086b47759a --format md
+```
+
+The web UI exposes the same two capabilities: a **History** panel in the header
+lists saved reviews, and **Export Markdown / Export JSON** buttons on a finished
+report download the report via `GET /api/reviews/:id/export?format=md|json`.
+
 ## `design-review status`
 
 Return app id, version, selected/default provider, and ACP Kit provider readiness.

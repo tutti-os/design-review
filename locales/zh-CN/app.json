@@ -4,7 +4,20 @@
     "subtitle": "AI Design Critique"
   },
   "header": {
-    "reviewNext": "↺ 评审下一个"
+    "reviewNext": "↺ 评审下一个",
+    "history": "🕘 评审历史"
+  },
+  "history": {
+    "title": "评审历史",
+    "subtitle": "点任意一条，回看完整的评审报告。",
+    "loading": "正在读取历史…",
+    "empty": "还没有评审记录。完成一次评审后会自动保存在这里。",
+    "untitled": "未命名评审",
+    "noSummary": "暂无总评",
+    "statusAnalyzing": "评审中",
+    "statusDone": "已完成",
+    "statusError": "失败",
+    "statusInput": "草稿"
   },
   "input": {
     "badge": "你的随身 AI 设计总监",
@@ -72,7 +85,9 @@
     "sourceImgFallback": "截图评审",
     "suggestionsTitle": "改进清单",
     "suggestionsSubtitle": "按优先级排好了，从上往下照着改。",
-    "reviewAnother": "↺ 再评审一个"
+    "reviewAnother": "↺ 再评审一个",
+    "exportMd": "⬇ 导出 Markdown",
+    "exportJson": "⬇ 导出 JSON"
   },
   "canvas": {
     "title": "在设计上标注",

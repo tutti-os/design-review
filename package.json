@@ -6,7 +6,8 @@
     "dev": "tsx server/src/main.ts",
     "build": "node scripts/build-server.mjs",
     "typecheck": "tsc -p server/tsconfig.json --noEmit",
-    "check": "pnpm run typecheck",
+    "test": "node --import tsx --test \"server/src/**/*.test.ts\"",
+    "check": "pnpm run typecheck && pnpm run test",
     "package:tutti": "node scripts/package-tutti-app.mjs"
   },
   "dependencies": {

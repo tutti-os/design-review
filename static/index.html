@@ -73,10 +73,51 @@
         <span style="font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);">{{ brandSubtitle }}</span>
       </div>
     </div>
-    <sc-if value="{{ showHeaderHome }}" hint-placeholder-val="{{ false }}">
-      <button onClick="{{ reset }}" style="font-family:'Space Grotesk'; font-weight:600; font-size:13px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:9px 16px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ reviewNext }}</button>
-    </sc-if>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button onClick="{{ openHistory }}" style="font-family:'Space Grotesk'; font-weight:600; font-size:13px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:9px 16px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ historyLabel }}</button>
+      <sc-if value="{{ showHeaderHome }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ reset }}" style="font-family:'Space Grotesk'; font-weight:600; font-size:13px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); padding:9px 16px; border-radius:999px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">{{ reviewNext }}</button>
+      </sc-if>
+    </div>
   </div>
+
+  <!-- ============ HISTORY ============ -->
+  <sc-if value="{{ historyOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeHistory }}" style="position:fixed; inset:0; z-index:50; background:rgba(16,12,8,.55); display:flex; align-items:flex-start; justify-content:center; padding:56px 20px; overflow:auto;">
+    <div onClick="{{ stopHistoryClick }}" style="width:100%; max-width:640px; background:var(--surface); border:2.5px solid var(--ink); border-radius:20px; box-shadow:8px 8px 0 var(--shadow); overflow:hidden; animation:tc-pop .3s both;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px; border-bottom:2px solid var(--ink); background:var(--surface-3);">
+        <div>
+          <div style="font-family:'Bricolage Grotesque'; font-weight:800; font-size:19px;">{{ historyTitle }}</div>
+          <div style="font-size:12.5px; color:var(--muted); margin-top:2px;">{{ historySubtitle }}</div>
+        </div>
+        <button onClick="{{ closeHistory }}" style="flex-shrink:0; width:34px; height:34px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); border-radius:999px; cursor:pointer; font-size:15px; box-shadow:2px 2px 0 var(--shadow);">✕</button>
+      </div>
+      <div style="max-height:60vh; overflow:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+        <sc-if value="{{ historyLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted); padding:18px 4px;">
+            <span style="width:14px; height:14px; border:2.5px solid var(--surface-2); border-top-color:#6C3BFF; border-radius:50%; animation:tc-spin .9s linear infinite; flex-shrink:0;"></span>{{ historyLoadingText }}
+          </div>
+        </sc-if>
+        <sc-if value="{{ historyHasError }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:13px; color:#FF5747; background:var(--surface-3); border:1.5px dashed var(--line); border-radius:11px; padding:14px;">{{ historyError }}</div>
+        </sc-if>
+        <sc-if value="{{ historyEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:13px; color:var(--muted); line-height:1.6; background:var(--surface-3); border:1.5px dashed var(--line); border-radius:11px; padding:16px;">{{ historyEmptyText }}</div>
+        </sc-if>
+        <sc-for list="{{ historyItems }}" as="h" hint-placeholder-count="0">
+          <button onClick="{{ h.onOpen }}" style="text-align:left; display:flex; align-items:center; gap:14px; width:100%; background:var(--surface); border:2px solid var(--ink); border-radius:14px; padding:13px 15px; cursor:pointer; box-shadow:2px 2px 0 var(--shadow);">
+            <span style="flex-shrink:0; width:46px; height:46px; border-radius:12px; display:grid; place-items:center; font-family:'Bricolage Grotesque'; font-weight:800; font-size:18px; color:#fff; background:{{ h.scoreColor }};">{{ h.scoreText }}</span>
+            <span style="flex:1; min-width:0; overflow:hidden;">
+              <span style="display:block; font-family:'Space Grotesk'; font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ h.source }}</span>
+              <span style="display:block; font-size:12.5px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px;">{{ h.summary }}</span>
+              <span style="display:block; font-size:11.5px; color:var(--muted); margin-top:3px;">{{ h.meta }}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
 
   <!-- ============ INPUT ============ -->
   <sc-if value="{{ isInput }}" hint-placeholder-val="{{ true }}">
@@ -373,7 +414,9 @@
       </div>
     </div>
 
-    <div style="text-align:center; margin-top:40px;">
+    <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:40px;">
+      <button onClick="{{ exportMd }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:14px 28px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:var(--surface); color:var(--ink); box-shadow:4px 4px 0 var(--shadow);">{{ exportMdLabel }}</button>
+      <button onClick="{{ exportJson }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:14px 28px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:var(--surface); color:var(--ink); box-shadow:4px 4px 0 var(--shadow);">{{ exportJsonLabel }}</button>
       <button onClick="{{ reset }}" style="font-family:'Bricolage Grotesque'; font-weight:700; font-size:16px; padding:14px 32px; border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; background:#16140F; color:#F7F3EC; box-shadow:4px 4px 0 {{ primary }};">{{ reviewAnother }}</button>
     </div>
   </div>
@@ -424,6 +467,10 @@ class Component extends DCLogic {
       hiddenMarkers: {},   // { [index]: true } 被隐藏的 Agent 标注框
       agentSessionId: '',
       agentResumeToken: '',
+      historyOpen: false,
+      historyLoading: false,
+      historyError: '',
+      historyItems: [],
       locale: L0,
     };
     this.DIMS = this.dimsFor(L0);
@@ -641,6 +688,51 @@ class Component extends DCLogic {
   clearReviewRoute = () => {
     this._reviewId = '';
     if(this.reviewIdFromHash()) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  };
+  openHistory = () => { this.setState({ historyOpen:true }); this.loadHistory(); };
+  closeHistory = () => this.setState({ historyOpen:false });
+  stopHistoryClick = (e) => { if(e && e.stopPropagation) e.stopPropagation(); };
+  loadHistory = async () => {
+    this.setState({ historyLoading:true, historyError:'' });
+    try {
+      const resp = await fetch('/api/reviews');
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error((data && data.error) || 'failed to load history');
+      this.setState({ historyItems: Array.isArray(data.reviews) ? data.reviews : [], historyLoading:false });
+    } catch(err){
+      this.setState({ historyItems:[], historyLoading:false, historyError: String((err && err.message) || err) });
+    }
+  };
+  pickHistory = (id) => {
+    if(!id) return;
+    this.setState({ historyOpen:false });
+    const hash = this.reviewHash(id);
+    if(window.location.hash === hash) this.loadReviewFromRoute();
+    else window.location.hash = hash;
+  };
+  historyStatusLabel = (status) => {
+    const map = { analyzing:'history.statusAnalyzing', done:'history.statusDone', error:'history.statusError', input:'history.statusInput' };
+    return this.tt(map[status] || 'history.statusInput');
+  };
+  formatHistoryTime = (iso) => {
+    if(!iso) return '';
+    try {
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '';
+      return d.toLocaleString(this.locale()==='en' ? 'en-US' : 'zh-CN', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch(e){ return String(iso).slice(0,16).replace('T',' '); }
+  };
+  exportReview = async (format) => {
+    let id = this._reviewId || this.reviewIdFromHash();
+    if(!id) id = await this.saveReviewState();
+    if(!id) return;
+    const a = document.createElement('a');
+    a.href = '/api/reviews/' + encodeURIComponent(id) + '/export?format=' + encodeURIComponent(format);
+    a.rel = 'noopener';
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
   loadAgentProviders = async () => {
     this.setState({ agentsLoading:true });
@@ -1429,6 +1521,37 @@ this.subjectPlaceholder()
       brandName: T('brand.name'),
       brandSubtitle: T('brand.subtitle'),
       reviewNext: T('header.reviewNext'),
+      historyLabel: T('header.history'),
+      openHistory: this.openHistory,
+      closeHistory: this.closeHistory,
+      stopHistoryClick: this.stopHistoryClick,
+      historyOpen: s.historyOpen,
+      historyLoading: s.historyLoading,
+      historyHasError: !!s.historyError,
+      historyError: s.historyError,
+      historyTitle: T('history.title'),
+      historySubtitle: T('history.subtitle'),
+      historyLoadingText: T('history.loading'),
+      historyEmpty: !s.historyLoading && !s.historyError && (!Array.isArray(s.historyItems) || s.historyItems.length === 0),
+      historyEmptyText: T('history.empty'),
+      historyItems: (Array.isArray(s.historyItems) ? s.historyItems : []).map((it) => {
+        const overall = (it && it.overall != null && isFinite(Number(it.overall))) ? Math.round(Number(it.overall)) : null;
+        const g = overall != null ? this.gradeFor(overall) : { color:'var(--muted-2)' };
+        const when = this.formatHistoryTime(it && (it.updatedAt || it.createdAt));
+        return {
+          id: it && it.id,
+          source: (it && it.source) || T('history.untitled'),
+          summary: (it && it.summary) || T('history.noSummary'),
+          scoreText: overall != null ? String(overall) : '—',
+          scoreColor: g.color,
+          meta: [this.historyStatusLabel(it && it.status), when].filter(Boolean).join(' · '),
+          onOpen: () => this.pickHistory(it && it.id),
+        };
+      }),
+      exportMd: () => this.exportReview('md'),
+      exportJson: () => this.exportReview('json'),
+      exportMdLabel: T('result.exportMd'),
+      exportJsonLabel: T('result.exportJson'),
       inputBadge: T('input.badge'),
       headlineLead: T('input.headlineLead'),
       headlineHighlight: T('input.headlineHighlight'),

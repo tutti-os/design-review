@@ -147,8 +147,8 @@ Provider detection:
 - Cache detection results for a short TTL, as Competitive Analysis does.
 - Return provider summaries with `provider`, `label`, `status`, `models`, and `reason`.
 - Pick a default provider server-side:
-  - prefer ready `claude`
-  - otherwise first ready provider
+  - use the Tutti/SDK catalog default when it is ready
+  - otherwise use the first ready catalog provider
   - otherwise report no ready provider
 - In phase A, no Web selector is present, so `/api/complete` uses this server-chosen default.
 

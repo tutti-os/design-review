@@ -1,7 +1,5 @@
-import {
-  createDefaultLocalAgentProviderPlugins,
-  createLocalAgentRuntime,
-} from "@tutti-os/agent-acp-kit";
+import { createDefaultLocalAgentRuntime } from "@tutti-os/agent-acp-kit";
+import { loadTuttiAgentProviderCatalog } from "@tutti-os/agent-acp-kit/tutti";
 
 export type AgentProviderSummary = {
   provider: string;
@@ -13,19 +11,24 @@ export type AgentProviderSummary = {
   reason?: string;
 };
 
-export const localAgentRuntime = createLocalAgentRuntime({
-  providers: createDefaultLocalAgentProviderPlugins(),
-});
+export type AgentProviderCatalog = {
+  defaultProvider: string | null;
+  providers: AgentProviderSummary[];
+};
+
+export const localAgentRuntime = createDefaultLocalAgentRuntime();
 
 const DETECTION_TTL_MS = 30_000;
-let detectionCache: { at: number; value: AgentProviderSummary[] } | null = null;
-let detectionInFlight: Promise<AgentProviderSummary[]> | null = null;
+let detectionCache: { at: number; value: AgentProviderCatalog } | null = null;
+let detectionInFlight: Promise<AgentProviderCatalog> | null = null;
 
 export function listRegisteredProviderIds(): string[] {
   return localAgentRuntime.listProviders().map((provider) => provider.id);
 }
 
-export async function detectAgentProviders(options: { maxAgeMs?: number } = {}): Promise<AgentProviderSummary[]> {
+export async function detectAgentProviderCatalog(
+  options: { maxAgeMs?: number } = {},
+): Promise<AgentProviderCatalog> {
   const maxAgeMs = options.maxAgeMs ?? DETECTION_TTL_MS;
   if (detectionCache && Date.now() - detectionCache.at <= maxAgeMs) {
     return detectionCache.value;
@@ -43,53 +46,76 @@ export async function detectAgentProviders(options: { maxAgeMs?: number } = {}):
   return detectionInFlight;
 }
 
-export function warmAgentProviders(): void {
-  void detectAgentProviders({ maxAgeMs: 0 }).catch(() => undefined);
+export async function detectAgentProviders(
+  options: { maxAgeMs?: number } = {},
+): Promise<AgentProviderSummary[]> {
+  return (await detectAgentProviderCatalog(options)).providers;
 }
 
-export function pickDefaultProvider(providers: AgentProviderSummary[]): string | null {
+export function warmAgentProviders(): void {
+  void detectAgentProviderCatalog({ maxAgeMs: 0 }).catch(() => undefined);
+}
+
+export function pickDefaultProvider(
+  providers: AgentProviderSummary[],
+  preferred?: string | null,
+): string | null {
   const ready = providers.filter((provider) => provider.status === "ready");
-  const claude = ready.find((provider) => provider.provider === "claude");
-  return claude?.provider ?? ready[0]?.provider ?? null;
+  const requested = preferred?.trim();
+  return ready.find((provider) => provider.provider === requested)?.provider
+    ?? ready[0]?.provider
+    ?? null;
 }
 
 export async function assertProviderReady(provider: string): Promise<AgentProviderSummary> {
-  if (!listRegisteredProviderIds().includes(provider)) {
-    throw new Error(`Provider is not registered in @tutti-os/agent-acp-kit: ${provider}`);
+  const catalog = await detectAgentProviderCatalog();
+  const match = catalog.providers.find((item) => item.provider === provider);
+  if (!match) {
+    throw new Error(`Provider is not exposed by the Tutti agent catalog: ${provider}`);
   }
-  const providers = await detectAgentProviders();
-  const match = providers.find((item) => item.provider === provider);
-  if (!match || match.status !== "ready") {
-    throw new Error(match?.reason ?? `${provider} local agent is not ready.`);
+  if (match.status !== "ready") {
+    throw new Error(match.reason ?? `${provider} local agent is not ready.`);
   }
   return match;
 }
 
-async function runDetection(): Promise<AgentProviderSummary[]> {
+async function runDetection(): Promise<AgentProviderCatalog> {
   try {
-    const detections = await localAgentRuntime.detect();
-    return detections.map((detection) => {
-      const models = detection.result?.models?.map((model) => model.id) ?? [];
-      const supported = detection.result?.supported !== false;
-      const detected = Boolean(detection.result);
-      const authState = detection.result?.authState;
-      const authBlocked = authState === "missing" || authState === "expired";
-      const ready = detected && supported && !authBlocked;
-
+    const [catalog, detections] = await Promise.all([
+      loadTuttiAgentProviderCatalog({ runtime: localAgentRuntime }),
+      localAgentRuntime.detect(),
+    ]);
+    const detectionByProvider = new Map(
+      detections.map((detection) => [detection.provider, detection]),
+    );
+    const providers = catalog.providers.map((provider) => {
+      const detection = detectionByProvider.get(provider.providerId);
+      const result = detection?.result;
+      const detected = Boolean(result);
+      const supported = provider.runtimeSupported && result?.supported !== false;
+      const ready =
+        detected &&
+        supported &&
+        provider.availability.status === "available";
       return {
-        provider: detection.provider,
-        label: detection.displayName,
+        provider: provider.providerId,
+        label: provider.displayName,
         detected,
         supported,
-        status: ready ? "ready" : detected ? "unsupported" : "not-installed",
-        models,
+        status: ready ? "ready" : provider.runtimeSupported && !detected ? "not-installed" : "unsupported",
+        models: result?.models?.map((model) => model.id) ?? [],
         reason:
-          detection.result?.unsupportedReason ??
-          (ready ? undefined : authReason(authState)),
-      };
+          provider.availability.detail ||
+          result?.unsupportedReason ||
+          authReason(result?.authState),
+      } satisfies AgentProviderSummary;
     });
+    return {
+      defaultProvider: pickDefaultProvider(providers, catalog.defaultProviderId),
+      providers,
+    };
   } catch {
-    return [];
+    return { defaultProvider: null, providers: [] };
   }
 }
 

@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@fastify/static": "^8.3.0",
-    "@tutti-os/agent-acp-kit": "0.2.2",
+    "@tutti-os/agent-acp-kit": "0.3.3",
     "fastify": "^5.6.2"
   },
   "devDependencies": {

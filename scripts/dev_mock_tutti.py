@@ -126,15 +126,17 @@ def main():
     args = [value for value in sys.argv[1:] if value != "--json"]
 
     if args[:2] == ["agent", "providers"]:
-        emit({"defaultProvider": "claude-code", "providers": [{"provider": "claude-code", "status": "available"}]})
-    if args[:2] == ["agent", "composer-options"]:
-        emit({"effectiveSettings": {"model": "sonnet", "permissionModeId": "auto", "reasoningEffort": "high"}})
+        emit({
+            "schemaVersion": 2,
+            "defaultProviderId": "claude-code",
+            "providers": [{"providerId": "claude-code", "availability": {"status": "available"}}],
+        })
     if args[:2] == ["agent", "start"]:
         kind, locale = classify(arg_value(args, "--prompt"))
-        emit({"session": {"id": f"sess-{kind}-{locale}", "provider": "claude-code"}})
+        emit({"session": {"agentSessionId": f"sess-{kind}-{locale}", "provider": "claude-code"}})
     if args[:2] == ["agent", "get"]:
         emit({"session": {"id": arg_value(args, "--session-id"), "status": "completed"}})
-    if args[:3] == ["agent", "session", "messages"]:
+    if args[:2] == ["agent", "session-summary"]:
         session_id = arg_value(args, "--session-id")
         parts = session_id.split("-")  # sess-<kind>-<locale>
         kind = parts[1] if len(parts) > 1 else "review"

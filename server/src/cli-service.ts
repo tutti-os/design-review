@@ -1,6 +1,6 @@
 import type { RuntimeConfig } from "./config.js";
 import { BadRequestError } from "./errors.js";
-import { detectAgentProviders, pickDefaultProvider } from "./agent-service.js";
+import { detectAgentProviderCatalog } from "./agent-service.js";
 import { extractJsonText, isJsonReviewText } from "./json-utils.js";
 import { runLocalAgentCompletion } from "./local-agent-provider.js";
 import { validateImagePath } from "./image-store.js";
@@ -13,8 +13,8 @@ const CLI_REVIEW_TIMEOUT_MS = 280_000;
 
 export async function cliStatus(config: RuntimeConfig, payload: unknown) {
   cliCommandInput(payload);
-  const providers = await detectAgentProviders({ maxAgeMs: 0 });
-  const provider = pickDefaultProvider(providers);
+  const catalog = await detectAgentProviderCatalog({ maxAgeMs: 0 });
+  const provider = catalog.defaultProvider;
   const providerAvailable = Boolean(provider);
   const value: Record<string, unknown> = {
     appId: config.appId,
@@ -22,7 +22,7 @@ export async function cliStatus(config: RuntimeConfig, payload: unknown) {
     provider: provider ?? "none",
     providerAvailable,
     ok: providerAvailable,
-    providers,
+    providers: catalog.providers,
   };
   if (!providerAvailable) {
     value.error = "No ready local agent provider. Install and sign in to Claude or Codex, then retry.";
@@ -110,4 +110,3 @@ function cleanString(value: unknown): string | undefined {
   const text = String(value ?? "").trim();
   return text || undefined;
 }
-

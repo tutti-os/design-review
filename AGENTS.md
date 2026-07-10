@@ -105,8 +105,8 @@ local-test/backward-compatible path.
 The runtime uses `@tutti-os/agent-acp-kit`:
 
 - provider detection is cached briefly;
-- ready `claude` is preferred by default;
-- otherwise the first ready provider is used;
+- the Tutti/SDK catalog default is used when it is ready;
+- otherwise the first ready catalog provider is used;
 - `/api/complete` and `design-review review` can accept optional `provider` and
   `model` overrides;
 - no `$TUTTI_CLI agent ...` polling is used for local agent execution.

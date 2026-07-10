@@ -12,8 +12,8 @@ importers:
         specifier: ^8.3.0
         version: 8.3.0
       '@tutti-os/agent-acp-kit':
-        specifier: 0.2.2
-        version: 0.2.2
+        specifier: 0.3.3
+        version: 0.3.3
       fastify:
         specifier: ^5.6.2
         version: 5.8.5
@@ -351,8 +351,8 @@ packages:
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
-  '@tutti-os/agent-acp-kit@0.2.2':
-    resolution: {integrity: sha512-G6XlJHCJK0gZ8GAe21PMKT/9UwZbDWJ7XOtj/re+YbqYQsDxX1qEVbXeZ00jRIIiRalq8ZyqIiSAQU2T1qDkuA==}
+  '@tutti-os/agent-acp-kit@0.3.3':
+    resolution: {integrity: sha512-o5GXFgggbbMKCUN3Sz9+sM6Z57/wtKtiQCYC9Fy+JAWJgyZCxgOnuozms3ApUpYkMtWuV0LxdfEwhS3yEOcenQ==}
 
   '@types/node@22.20.0':
     resolution: {integrity: sha512-QWlFW2wf3nTjC13/DqRnBpR4ZO36VJH/JVBkA/vcnmbTBNQIlnObqyqZE1tUR7+Ni23Lda8R1BxMfbXRpCUx5g==}
@@ -1166,7 +1166,7 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
-  '@tutti-os/agent-acp-kit@0.2.2':
+  '@tutti-os/agent-acp-kit@0.3.3':
     dependencies:
       '@anthropic-ai/claude-agent-sdk': 0.2.101(zod@4.4.3)
       zod: 4.4.3

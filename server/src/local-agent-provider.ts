@@ -2,7 +2,7 @@ import { mkdir, rm } from "node:fs/promises";
 
 import type { AgentEvent } from "@tutti-os/agent-acp-kit";
 
-import { assertProviderReady, localAgentRuntime, pickDefaultProvider, detectAgentProviders } from "./agent-service.js";
+import { assertProviderReady, detectAgentProviderCatalog, localAgentRuntime } from "./agent-service.js";
 import type { RuntimeConfig } from "./config.js";
 import { AgentTimeoutError } from "./errors.js";
 
@@ -25,7 +25,7 @@ export type CompletionRunOutput = {
 
 export async function runLocalAgentCompletion(input: CompletionRunInput): Promise<CompletionRunOutput> {
   await mkdir(input.runDir, { recursive: true });
-  const provider = input.provider?.trim() || pickDefaultProvider(await detectAgentProviders());
+  const provider = input.provider?.trim() || (await detectAgentProviderCatalog()).defaultProvider;
   if (!provider) {
     throw new Error("No ready local agent provider. Install and sign in to Claude or Codex, then retry.");
   }

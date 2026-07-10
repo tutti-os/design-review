@@ -20,7 +20,6 @@ PORT = int(os.environ["TUTTI_APP_PORT"])
 STATIC_DIR = PACKAGE_DIR / "static"
 LOCALES_DIR = PACKAGE_DIR / "locales"
 WORKSPACE_ROOT = os.environ.get("TUTTI_WORKSPACE_ROOT", "").strip()
-DEFAULT_PROVIDER = "claude-code"
 I18N_PLACEHOLDER = "<!--__TUTTI_I18N__-->"
 # `review --image-path` accepts a caller-supplied local path, so constrain it: a
 # known image type (extension + magic bytes), a size ceiling, and a location under
@@ -148,14 +147,12 @@ def image_suffix(media_type):
 
 
 def start_agent_session(prompt):
-    settings = default_agent_settings()
+    provider = default_agent_provider()
     args = [
         "agent",
         "start",
         "--provider",
-        settings["provider"],
-        "--model",
-        settings["model"],
+        provider,
         "--title",
         "设计评审",
         "--prompt",
@@ -163,19 +160,15 @@ def start_agent_session(prompt):
         "--display-prompt",
         "执行设计评审并返回结构化 JSON",
     ]
-    if settings.get("reasoningEffort"):
-        args.extend(["--reasoning-effort", settings["reasoningEffort"]])
-    if settings.get("permissionMode"):
-        args.extend(["--permission-mode", settings["permissionMode"]])
     if WORKSPACE_ROOT:
         args.extend(["--cwd", WORKSPACE_ROOT])
     session = run_tutti_cli(args, timeout=60).get("session") or {}
-    agent_session_id = clean_optional_string(session.get("id"))
+    agent_session_id = clean_optional_string(session.get("agentSessionId") or session.get("id"))
     if not agent_session_id:
         raise RuntimeError("agent session was not created")
     return {
         "id": agent_session_id,
-        "provider": clean_optional_string(session.get("provider")) or settings["provider"],
+        "provider": clean_optional_string(session.get("provider")) or provider,
     }
 
 
@@ -201,69 +194,29 @@ def wait_for_agent_text(agent_session_id, timeout_seconds=300, accepts_text=None
     raise AgentTimeout("等待评审 Agent 返回结果超时。")
 
 
-def default_agent_provider():
-    try:
+def default_agent_provider(payload=None):
+    if payload is None:
         payload = run_tutti_cli(["agent", "providers"], timeout=30)
-    except Exception:
-        return DEFAULT_PROVIDER
-    default_provider = str(payload.get("defaultProvider") or "").strip()
+    if payload.get("schemaVersion") != 2:
+        raise RuntimeError("unsupported Tutti agent provider catalog schema")
+    default_provider = clean_optional_string(payload.get("defaultProviderId"))
     providers = payload.get("providers") if isinstance(payload.get("providers"), list) else []
-    ready_providers = {
-        str(item.get("provider") or "").strip()
-        for item in providers
-        if str(item.get("status") or "").strip() in {"ready", "configured", "available"}
-    }
-    if default_provider and default_provider != "codex":
+    provider_ids = [clean_optional_string(item.get("providerId")) for item in providers]
+    available_provider_ids = []
+    for item in providers:
+        availability = item.get("availability") if isinstance(item.get("availability"), dict) else {}
+        provider = clean_optional_string(item.get("providerId"))
+        if provider and clean_optional_string(availability.get("status")) == "available":
+            available_provider_ids.append(provider)
+    if default_provider and default_provider in available_provider_ids:
         return default_provider
-    if DEFAULT_PROVIDER in ready_providers:
-        return DEFAULT_PROVIDER
-    for provider in ready_providers:
-        if provider and provider != "codex":
-            return provider
-    if providers:
-        return DEFAULT_PROVIDER
-    return DEFAULT_PROVIDER
-
-
-def default_agent_settings():
-    provider = default_agent_provider()
-    settings = {
-        "provider": provider,
-        "model": "",
-        "reasoningEffort": "",
-        "permissionMode": "",
-    }
-    try:
-        payload = run_tutti_cli(["agent", "composer-options", "--provider", provider], timeout=30)
-    except Exception:
-        settings["model"] = "default"
-        return settings
-
-    effective = payload.get("effectiveSettings") if isinstance(payload.get("effectiveSettings"), dict) else {}
-    model_config = payload.get("modelConfig") if isinstance(payload.get("modelConfig"), dict) else {}
-    reasoning_config = payload.get("reasoningConfig") if isinstance(payload.get("reasoningConfig"), dict) else {}
-    permission_config = payload.get("permissionConfig") if isinstance(payload.get("permissionConfig"), dict) else {}
-    settings["model"] = clean_optional_string(effective.get("model")) or config_option_selected_value(model_config) or "default"
-    settings["reasoningEffort"] = clean_optional_string(effective.get("reasoningEffort")) or config_option_selected_value(reasoning_config)
-    settings["permissionMode"] = clean_optional_string(effective.get("permissionModeId")) or clean_optional_string(permission_config.get("defaultValue"))
-    return settings
-
-
-def config_option_selected_value(config):
-    value = clean_optional_string(config.get("currentValue"))
-    if value:
-        return value
-    value = clean_optional_string(config.get("defaultValue"))
-    if value:
-        return value
-    options = config.get("options") if isinstance(config.get("options"), list) else []
-    for option in options:
-        if not isinstance(option, dict):
-            continue
-        value = clean_optional_string(option.get("value")) or clean_optional_string(option.get("id"))
-        if value:
-            return value
-    return ""
+    if available_provider_ids:
+        return available_provider_ids[0]
+    if default_provider and default_provider in provider_ids:
+        return default_provider
+    if provider_ids and provider_ids[0]:
+        return provider_ids[0]
+    raise RuntimeError("no Tutti agent provider is configured")
 
 
 def clean_optional_string(value):
@@ -293,7 +246,7 @@ def get_agent_session(agent_session_id):
 
 def latest_agent_report_with_status(agent_session_id):
     result = run_tutti_cli(
-        ["agent", "session", "messages", "--session-id", agent_session_id, "--limit", "80"],
+        ["agent", "session-summary", "--session-id", agent_session_id, "--limit", "80"],
         timeout=30,
     )
     messages = result.get("messages") if isinstance(result.get("messages"), list) else []
@@ -305,7 +258,7 @@ def latest_agent_report_from_messages(messages):
         role = str(message.get("role") or "").strip().lower()
         kind = str(message.get("kind") or "").strip().lower()
         if role in {"assistant", "agent"} and kind in {"", "text"}:
-            text = extract_message_text(message.get("payload"))
+            text = extract_message_text(message.get("payload")) or extract_message_text(message)
             if text:
                 return text, str(message.get("status") or "").strip().lower()
     return "", ""
@@ -722,18 +675,22 @@ def cli_status(payload=None):
     else:
         try:
             result = run_tutti_cli(["agent", "providers"], timeout=20)
-            provider = clean_optional_string(result.get("defaultProvider"))
+            if result.get("schemaVersion") != 2:
+                raise RuntimeError("unsupported Tutti agent provider catalog schema")
             providers = result.get("providers") if isinstance(result.get("providers"), list) else []
             ready = {
-                clean_optional_string(item.get("provider"))
+                clean_optional_string(item.get("providerId"))
                 for item in providers
-                if clean_optional_string(item.get("status")) in {"ready", "configured", "available"}
+                if clean_optional_string(
+                    item.get("availability", {}).get("status")
+                    if isinstance(item.get("availability"), dict)
+                    else ""
+                ) == "available"
             }
-            if not provider:
-                provider = default_agent_provider()
+            provider = default_agent_provider(result)
             available = provider in ready
             if not available:
-                error = f"agent provider '{provider or DEFAULT_PROVIDER}' is not ready."
+                error = f"agent provider '{provider}' is not ready."
         except Exception as exc:
             error = clean_optional_string(str(exc)) or "failed to query agent providers."
     # ``ok`` must mean "review can run", so it reflects real readiness, not just that
@@ -741,7 +698,7 @@ def cli_status(payload=None):
     value = {
         "appId": APP_ID,
         "version": APP_VERSION,
-        "provider": provider or DEFAULT_PROVIDER,
+        "provider": provider,
         "tuttiCliConfigured": cli_configured,
         "providerAvailable": available,
         "ok": cli_configured and available,

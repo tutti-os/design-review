@@ -7,7 +7,7 @@ import { createRuntimeConfig } from "./config.js";
 import { BadRequestError, AgentTimeoutError } from "./errors.js";
 import { completePayload } from "./completion-service.js";
 import { cliExport, cliHistory, cliReview, cliStatus } from "./cli-service.js";
-import { detectAgentProviders, pickDefaultProvider, warmAgentProviders } from "./agent-service.js";
+import { detectAgentProviderCatalog, warmAgentProviders } from "./agent-service.js";
 import { createReview, exportReview, listReviews, normalizeExportFormat, readReview, updateReview } from "./review-store.js";
 import { getCompletionJob, startCompletionJob } from "./completion-jobs.js";
 
@@ -23,12 +23,10 @@ app.get("/favicon.ico", async (_request, reply) => reply.header("Cache-Control",
 
 app.get("/api/agents", async (_request, reply) => {
   try {
-    const providers = (await detectAgentProviders({ maxAgeMs: 0 })).filter(
-      (provider) => provider.status === "ready" && ["codex", "claude"].includes(provider.provider),
-    );
+    const catalog = await detectAgentProviderCatalog({ maxAgeMs: 0 });
     return {
-      defaultProvider: pickDefaultProvider(providers) ?? providers[0]?.provider ?? null,
-      providers,
+      defaultProvider: catalog.defaultProvider,
+      providers: catalog.providers.filter((provider) => provider.status === "ready"),
     };
   } catch (error) {
     return sendApiError(reply, error, "读取本地 Agent 列表失败。");

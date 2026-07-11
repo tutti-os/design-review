@@ -147,11 +147,11 @@ Output `value`:
 {
   "appId": "design-review",
   "version": "0.1.0",
-  "provider": "claude",
+  "provider": "claude-code",
   "providerAvailable": true,
   "ok": true,
   "providers": [
-    { "provider": "claude", "label": "Claude Code", "status": "ready", "models": ["default"] }
+    { "provider": "claude-code", "label": "Claude Code", "status": "ready", "models": ["default"] }
   ]
 }
 ```

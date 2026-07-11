@@ -131,10 +131,11 @@ class ReviewServerTest(unittest.TestCase):
             def fake_run_tutti_cli(args, timeout=60):
                 if args == ["agent", "providers"]:
                     return {
-                        "defaultProvider": "claude-code",
+                        "schemaVersion": 2,
+                        "defaultProviderId": "claude-code",
                         "providers": [
-                            {"provider": "claude-code", "status": "unavailable"},
-                            {"provider": "codex", "status": "unavailable"},
+                            {"providerId": "claude-code", "availability": {"status": "unavailable"}},
+                            {"providerId": "codex", "availability": {"status": "unavailable"}},
                         ],
                     }
                 raise AssertionError(f"unexpected CLI args: {args!r}")
@@ -142,12 +143,13 @@ class ReviewServerTest(unittest.TestCase):
             with mock.patch.object(module, "run_tutti_cli", fake_run_tutti_cli):
                 self.assertEqual(module.default_agent_provider(), "claude-code")
 
-    def test_default_agent_provider_does_not_fall_back_to_codex_when_cli_fails(self):
+    def test_default_agent_provider_surfaces_cli_failure(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             module = load_server_module(Path(temp_dir))
 
             with mock.patch.object(module, "run_tutti_cli", side_effect=RuntimeError("provider query failed")):
-                self.assertEqual(module.default_agent_provider(), "claude-code")
+                with self.assertRaisesRegex(RuntimeError, "provider query failed"):
+                    module.default_agent_provider()
 
     def test_default_agent_provider_does_not_use_unavailable_codex_default(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -156,10 +158,11 @@ class ReviewServerTest(unittest.TestCase):
             def fake_run_tutti_cli(args, timeout=60):
                 if args == ["agent", "providers"]:
                     return {
-                        "defaultProvider": "codex",
+                        "schemaVersion": 2,
+                        "defaultProviderId": "codex",
                         "providers": [
-                            {"provider": "claude-code", "status": "available"},
-                            {"provider": "codex", "status": "unavailable"},
+                            {"providerId": "claude-code", "availability": {"status": "available"}},
+                            {"providerId": "codex", "availability": {"status": "unavailable"}},
                         ],
                     }
                 raise AssertionError(f"unexpected CLI args: {args!r}")
@@ -167,7 +170,7 @@ class ReviewServerTest(unittest.TestCase):
             with mock.patch.object(module, "run_tutti_cli", fake_run_tutti_cli):
                 self.assertEqual(module.default_agent_provider(), "claude-code")
 
-    def test_start_agent_session_uses_default_provider_settings(self):
+    def test_start_agent_session_uses_platform_provider_defaults(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             module = load_server_module(Path(temp_dir))
             calls = []
@@ -175,17 +178,15 @@ class ReviewServerTest(unittest.TestCase):
             def fake_run_tutti_cli(args, timeout=60):
                 calls.append(args)
                 if args == ["agent", "providers"]:
-                    return {"defaultProvider": "claude-code", "providers": []}
-                if args == ["agent", "composer-options", "--provider", "claude-code"]:
                     return {
-                        "effectiveSettings": {
-                            "model": "sonnet",
-                            "permissionModeId": "auto",
-                            "reasoningEffort": "high",
-                        }
+                        "schemaVersion": 2,
+                        "defaultProviderId": "claude-code",
+                        "providers": [
+                            {"providerId": "claude-code", "availability": {"status": "available"}},
+                        ],
                     }
                 if args[:2] == ["agent", "start"]:
-                    return {"session": {"id": "session-1", "provider": "claude-code"}}
+                    return {"session": {"agentSessionId": "session-1", "provider": "claude-code"}}
                 raise AssertionError(f"unexpected CLI args: {args!r}")
 
             with mock.patch.object(module, "run_tutti_cli", fake_run_tutti_cli):
@@ -194,9 +195,9 @@ class ReviewServerTest(unittest.TestCase):
             self.assertEqual(session, {"id": "session-1", "provider": "claude-code"})
             start_args = calls[-1]
             self.assertEqual(start_args[:4], ["agent", "start", "--provider", "claude-code"])
-            self.assertEqual(start_args[start_args.index("--model") + 1], "sonnet")
-            self.assertEqual(start_args[start_args.index("--reasoning-effort") + 1], "high")
-            self.assertEqual(start_args[start_args.index("--permission-mode") + 1], "auto")
+            self.assertNotIn("--model", start_args)
+            self.assertNotIn("--reasoning-effort", start_args)
+            self.assertNotIn("--permission-mode", start_args)
             self.assertNotIn("--show", start_args)
 
     def test_wait_for_agent_text_ignores_tool_message_until_json_report(self):
@@ -221,6 +222,25 @@ class ReviewServerTest(unittest.TestCase):
                 mock.patch.object(module.time, "sleep", return_value=None),
             ):
                 self.assertEqual(module.wait_for_agent_text("session-1"), REVIEW_JSON)
+
+    def test_latest_agent_report_reads_assistant_payload_before_message_fallback(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module = load_server_module(Path(temp_dir))
+
+            text, status = module.latest_agent_report_from_messages(
+                [
+                    {
+                        "version": 3,
+                        "role": "assistant",
+                        "kind": "text",
+                        "status": "completed",
+                        "payload": {"content": REVIEW_JSON},
+                    }
+                ]
+            )
+
+            self.assertEqual(text, REVIEW_JSON)
+            self.assertEqual(status, "completed")
 
     def test_complete_payload_returns_agent_json_text(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -435,8 +455,9 @@ class ReviewServerTest(unittest.TestCase):
             def fake_run_tutti_cli(args, timeout=60):
                 if args == ["agent", "providers"]:
                     return {
-                        "defaultProvider": "claude-code",
-                        "providers": [{"provider": "claude-code", "status": "available"}],
+                        "schemaVersion": 2,
+                        "defaultProviderId": "claude-code",
+                        "providers": [{"providerId": "claude-code", "availability": {"status": "available"}}],
                     }
                 raise AssertionError(f"unexpected CLI args: {args!r}")
 
@@ -464,8 +485,9 @@ class ReviewServerTest(unittest.TestCase):
             def fake_run_tutti_cli(args, timeout=60):
                 if args == ["agent", "providers"]:
                     return {
-                        "defaultProvider": "claude-code",
-                        "providers": [{"provider": "claude-code", "status": "available"}],
+                        "schemaVersion": 2,
+                        "defaultProviderId": "claude-code",
+                        "providers": [{"providerId": "claude-code", "availability": {"status": "available"}}],
                     }
                 raise AssertionError(f"unexpected CLI args: {args!r}")
 
@@ -565,8 +587,9 @@ class ReviewServerTest(unittest.TestCase):
             def fake_run_tutti_cli(args, timeout=60):
                 if args == ["agent", "providers"]:
                     return {
-                        "defaultProvider": "claude-code",
-                        "providers": [{"provider": "claude-code", "status": "unavailable"}],
+                        "schemaVersion": 2,
+                        "defaultProviderId": "claude-code",
+                        "providers": [{"providerId": "claude-code", "availability": {"status": "unavailable"}}],
                     }
                 raise AssertionError(f"unexpected CLI args: {args!r}")
 

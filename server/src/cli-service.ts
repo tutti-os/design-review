@@ -34,7 +34,16 @@ export async function cliReview(config: RuntimeConfig, payload: unknown) {
   const input = cliCommandInput(payload);
   const url = cleanString(input.url);
   let imagePath = cleanString(input["image-path"]) || cleanString(input.imagePath);
-  const agentTargetId = cleanString(input["agent-id"]) || cleanString(input.agentTargetId);
+  const canonicalAgentTargetId = cleanString(input["agent-id"]);
+  const aliasAgentTargetId = cleanString(input.agentTargetId);
+  if (
+    canonicalAgentTargetId &&
+    aliasAgentTargetId &&
+    canonicalAgentTargetId !== aliasAgentTargetId
+  ) {
+    throw new BadRequestError("agent-id and agentTargetId must match when both are provided.");
+  }
+  const agentTargetId = canonicalAgentTargetId || aliasAgentTargetId;
   const provider = cleanString(input.provider);
   if (agentTargetId && provider) {
     throw new BadRequestError("Provide agent-id or deprecated provider, not both.");

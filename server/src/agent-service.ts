@@ -30,11 +30,14 @@ export function listRegisteredProviderIds(): string[] {
 }
 
 export async function detectAgentTargetCatalog(
-  options: { maxAgeMs?: number } = {},
+  options: { maxAgeMs?: number; signal?: AbortSignal } = {},
 ): Promise<AgentTargetCatalog> {
   const maxAgeMs = options.maxAgeMs ?? DETECTION_TTL_MS;
   if (detectionCache && Date.now() - detectionCache.at <= maxAgeMs) {
     return detectionCache.value;
+  }
+  if (options.signal) {
+    return runDetection(options.signal);
   }
   if (!detectionInFlight) {
     detectionInFlight = runDetection()
@@ -69,8 +72,9 @@ export function pickDefaultAgentTarget(
 export async function resolveReadyAgentTarget(input: {
   agentTargetId?: string;
   provider?: string;
+  signal?: AbortSignal;
 }): Promise<AgentTargetSummary> {
-  const catalog = await detectAgentTargetCatalog();
+  const catalog = await detectAgentTargetCatalog({ signal: input.signal });
   return resolveReadyAgentTargetFromCatalog(catalog, input);
 }
 
@@ -104,15 +108,15 @@ export function resolveReadyAgentTargetFromCatalog(
     );
   }
   if (match.status !== "ready") {
-    throw new Error(match.reason ?? `${match.label} is not ready.`);
+    throw new BadRequestError(match.reason ?? `${match.label} is not ready.`);
   }
   return match;
 }
 
-async function runDetection(): Promise<AgentTargetCatalog> {
+async function runDetection(signal?: AbortSignal): Promise<AgentTargetCatalog> {
   try {
     const [catalog, detections] = await Promise.all([
-      loadTuttiAgentCatalog({ runtime: localAgentRuntime }),
+      loadTuttiAgentCatalog({ runtime: localAgentRuntime, signal }),
       localAgentRuntime.detect(),
     ]);
     const detectionByProvider = new Map(
@@ -120,7 +124,11 @@ async function runDetection(): Promise<AgentTargetCatalog> {
     );
     const agents = catalog.agents.map((agent) => {
       const detection = detectionByProvider.get(agent.providerId);
-      const detected = Boolean(detection);
+      const detected = runtimeWasDetected(
+        agent.availability.reasonCode,
+        detection?.reason,
+        Boolean(detection),
+      );
       const supported = agent.runtimeSupported && detection?.supported !== false;
       const ready = detected && supported && agent.availability.status === "available";
       return {
@@ -145,6 +153,30 @@ async function runDetection(): Promise<AgentTargetCatalog> {
   } catch {
     return { defaultAgentTargetId: null, agents: [] };
   }
+}
+
+export function runtimeWasDetected(
+  availabilityReasonCode: string | undefined,
+  detectionReason: string | undefined,
+  hasDetection: boolean,
+): boolean {
+  if (!hasDetection) return false;
+  const code = availabilityReasonCode?.trim().toLowerCase() ?? "";
+  if (
+    code === "runtime_not_detected" ||
+    code === "cli_not_found" ||
+    code.includes("not_installed") ||
+    code.includes("executable_not_found")
+  ) {
+    return false;
+  }
+  const reason = detectionReason?.trim().toLowerCase() ?? "";
+  return !(
+    reason.includes("executable not found") ||
+    reason.includes("executable was not found") ||
+    reason.includes("runtime was not detected") ||
+    reason.includes("runtime is not installed")
+  );
 }
 
 function authReason(authState: string | undefined): string | undefined {

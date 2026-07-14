@@ -33,46 +33,58 @@ export type CompletionRunOutput = {
 export async function runLocalAgentCompletion(
   input: CompletionRunInput,
 ): Promise<CompletionRunOutput> {
-  await mkdir(input.runDir, { recursive: true });
-  const target = await resolveReadyAgentTarget({
-    agentTargetId: input.agentTargetId,
-    provider: input.provider,
-  });
-  const provider = target.providerId;
-  const cwd = input.config.workspaceRoot ?? input.runDir;
-  const [composer, skillContext] = await Promise.all([
-    loadTuttiAgentComposerOptions({
-      runtime: localAgentRuntime,
-      agentTargetId: target.agentTargetId,
-      model: input.model?.trim(),
-      cwd,
-      env: process.env,
-    }),
-    loadTuttiAgentSkillContext({
-      agentTargetId: target.agentTargetId,
-      agentSessionId: input.runId,
-      cwd,
-      env: process.env,
-    }),
-  ]);
-  const model = stripProviderPrefix(
-    input.model?.trim() ||
-      composer.modelConfig.currentValue ||
-      composer.modelConfig.defaultValue ||
-      "default",
-    provider,
-  );
-  const permissionMode = composer.permissionConfig.modes.find(
-    (mode) => mode.id === composer.permissionConfig.defaultValue,
-  );
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), input.timeoutMs);
   let text = "";
+  let agentTargetId = "";
+  let provider = "";
   let sessionId: string | undefined;
   let resumeToken: string | undefined;
 
   try {
+    await mkdir(input.runDir, { recursive: true });
+    const target = await abortOnSignal(
+      resolveReadyAgentTarget({
+        agentTargetId: input.agentTargetId,
+        provider: input.provider,
+        signal: controller.signal,
+      }),
+      controller.signal,
+    );
+    agentTargetId = target.agentTargetId;
+    provider = target.providerId;
+    const cwd = input.config.workspaceRoot ?? input.runDir;
+    const [composer, skillContext] = await abortOnSignal(
+      Promise.all([
+        loadTuttiAgentComposerOptions({
+          runtime: localAgentRuntime,
+          agentTargetId: target.agentTargetId,
+          model: input.model?.trim(),
+          cwd,
+          env: process.env,
+          signal: controller.signal,
+        }),
+        loadTuttiAgentSkillContext({
+          agentTargetId: target.agentTargetId,
+          agentSessionId: input.runId,
+          cwd,
+          env: process.env,
+          signal: controller.signal,
+        }),
+      ]),
+      controller.signal,
+    );
+    const model = stripProviderPrefix(
+      input.model?.trim() ||
+        composer.modelConfig.currentValue ||
+        composer.modelConfig.defaultValue ||
+        "default",
+      provider,
+    );
+    const permissionMode = composer.permissionConfig.modes.find(
+      (mode) => mode.id === composer.permissionConfig.defaultValue,
+    );
+
     for await (const event of localAgentRuntime.run({
       runId: input.runId,
       conversationId: input.runId,
@@ -128,11 +140,26 @@ export async function runLocalAgentCompletion(
 
   return {
     text: text.trim(),
-    agentTargetId: target.agentTargetId,
+    agentTargetId,
     provider,
     sessionId,
     resumeToken,
   };
+}
+
+function abortOnSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new AgentTimeoutError("等待评审 Agent 返回结果超时。"));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new AgentTimeoutError("等待评审 Agent 返回结果超时。"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
+  });
 }
 
 type MappedAgentEvent =

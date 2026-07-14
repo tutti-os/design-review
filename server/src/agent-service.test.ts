@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   pickDefaultAgentTarget,
   resolveReadyAgentTargetFromCatalog,
+  runtimeWasDetected,
   type AgentTargetCatalog,
   type AgentTargetSummary,
 } from "./agent-service.js";
@@ -65,4 +66,23 @@ test("unknown exact target is an invalid-input error", () => {
     () => resolveReadyAgentTargetFromCatalog(catalog, { agentTargetId: "team:missing" }),
     BadRequestError,
   );
+});
+
+test("an exact target that is not ready is an invalid-input error", () => {
+  const catalog: AgentTargetCatalog = {
+    defaultAgentTargetId: null,
+    agents: [agent("team:reviewer", "codex", "not-installed")],
+  };
+  assert.throws(
+    () => resolveReadyAgentTargetFromCatalog(catalog, { agentTargetId: "team:reviewer" }),
+    BadRequestError,
+  );
+});
+
+test("missing executables remain not-installed while auth failures remain detected", () => {
+  assert.equal(
+    runtimeWasDetected("cli_not_found", "Executable not found on PATH: opencode", true),
+    false,
+  );
+  assert.equal(runtimeWasDetected("auth_required", "Provider authentication is required.", true), true);
 });

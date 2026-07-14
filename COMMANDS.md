@@ -67,7 +67,7 @@ Examples:
 ```sh
 "$TUTTI_CLI" --json design-review review --url "https://example.com" --locale en
 "$TUTTI_CLI" --json design-review review --image-path "/abs/path/to/screen.png" --strictness strict
-"$TUTTI_CLI" --json design-review review --url "https://example.com" --agent-id <agent-target-id>
+"$TUTTI_CLI" --json design-review review --url "https://example.com" --agent-id "<agent-target-id>"
 ```
 
 Notes:

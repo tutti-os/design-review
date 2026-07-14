@@ -119,7 +119,7 @@ Other Tutti apps and agents can call:
 "$TUTTI_CLI" --json design-review status
 "$TUTTI_CLI" --json design-review review --url https://example.com --locale en
 "$TUTTI_CLI" --json design-review review --image-path /abs/screen.png --strictness strict
-"$TUTTI_CLI" --json design-review review --url https://example.com --agent-id <agent-target-id>
+"$TUTTI_CLI" --json design-review review --url https://example.com --agent-id "<agent-target-id>"
 "$TUTTI_CLI" --json design-review history --limit 20
 "$TUTTI_CLI" --json design-review export --id <review-id> --format md
 ```

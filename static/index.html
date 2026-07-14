@@ -169,11 +169,11 @@
           </sc-if>
         </sc-if>
 
-        <sc-if value="{{ hasProviderChoices }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ showAgentSelector }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding:10px; border:2px solid var(--line); border-radius:14px; background:var(--surface-2);">
             <div style="min-width:96px;">
               <div style="font-family:'Space Grotesk'; font-size:12.5px; font-weight:800; color:var(--ink);">{{ agentProviderLabel }}</div>
-              <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">{{ agentProviderHint }}</div>
+              <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">{{ agentSelectionMessage }}</div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
               <sc-for list="{{ agentChoices }}" as="p" hint-placeholder-count="2">
@@ -770,30 +770,34 @@ class Component extends DCLogic {
   };
   loadAgentTargets = async () => {
     this.setState({ agentsLoading:true });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const resp = await fetch('/api/agents');
+      const resp = await fetch('/api/agents', { signal:controller.signal });
       const data = await resp.json().catch(() => ({}));
       if(!resp.ok) throw new Error(data.error || 'failed to load agents');
       const agents = Array.isArray(data.agents) ? data.agents : [];
       const agentTargetIds = agents.map(agent => agent && agent.agentTargetId).filter(Boolean);
       const current = agentTargetIds.indexOf(this.state.selectedAgentTargetId) >= 0 ? this.state.selectedAgentTargetId : '';
       const legacyProvider = this.state.legacySelectedProvider;
-      const legacyMatches = legacyProvider
+      const legacyMatches = !current && legacyProvider
         ? agents.filter(agent => agent && agent.providerId === this.state.legacySelectedProvider)
         : [];
       const migrated = legacyMatches.length === 1 ? legacyMatches[0].agentTargetId : '';
       const staleExactTarget = this.state.selectedAgentTargetId && !current;
-      const ambiguousLegacy = legacyProvider && legacyMatches.length !== 1;
-      const selectionError = staleExactTarget || ambiguousLegacy
-        ? this.tt('input.agentSelectionStale')
-        : '';
+      const ambiguousLegacy = !current && legacyProvider && legacyMatches.length !== 1;
+      const selectionError = !agentTargetIds.length
+        ? this.tt('input.noAgents')
+        : (staleExactTarget || ambiguousLegacy ? this.tt('input.agentSelectionStale') : '');
       const selected = selectionError ? '' : (current || migrated || data.defaultAgentTargetId || agentTargetIds[0] || '');
-      this.setState({ agentTargets: agents, defaultAgentTargetId:data.defaultAgentTargetId || agentTargetIds[0] || '', selectedAgentTargetId: selected, legacySelectedProvider:'', agentSelectionError:selectionError, agentsLoading:false });
+      await this.setStateAsync({ agentTargets: agents, defaultAgentTargetId:data.defaultAgentTargetId || agentTargetIds[0] || '', selectedAgentTargetId: selected, legacySelectedProvider:'', agentSelectionError:selectionError, agentsLoading:false });
+      if(migrated && selected === migrated) this.scheduleReviewSave();
     } catch(err){
-      this.setState({ agentTargets: [], agentsLoading:false });
+      this.setState({ agentTargets: [], selectedAgentTargetId:'', agentSelectionError:this.tt('input.agentDiscoveryFailed'), agentsLoading:false });
+    } finally {
+      clearTimeout(timeout);
     }
   };
-  onAgentTarget = (e) => this.setState({ selectedAgentTargetId: e.target.value, agentSelectionError:'' });
   pickAgentTarget = (agentTargetId) => this.setState({ selectedAgentTargetId: agentTargetId, agentSelectionError:'' });
   agentRequestOptions = () => {
     if(this.state.agentSelectionError || !this.state.selectedAgentTargetId) {
@@ -1344,7 +1348,10 @@ this.subjectPlaceholder()
   onDragOver = (e) => { e.preventDefault(); if(!this.state.dragging) this.setState({dragging:true}); };
   onDragLeave = (e) => { e.preventDefault(); this.setState({dragging:false}); };
 
-  canGo = () => this.state.mode==='url' ? this.state.url.trim().length > 3 : !!this.state.imageData;
+  canGo = () => {
+    const hasInput = this.state.mode==='url' ? this.state.url.trim().length > 3 : !!this.state.imageData;
+    return hasInput && !this.state.agentsLoading && !this.state.agentSelectionError && !!this.state.selectedAgentTargetId;
+  };
 
   analyze = async () => {
     if(!this.canGo() || this.state.status==='analyzing') return;
@@ -1529,6 +1536,7 @@ this.subjectPlaceholder()
       hiddenMarkers:{},
       reviewJobId:'',
       selectedAgentTargetId:this.state.defaultAgentTargetId || '',
+      legacySelectedProvider:'',
       agentSelectionError:'',
       agentTargetId:'',
       agentProvider:'',
@@ -1653,10 +1661,8 @@ this.subjectPlaceholder()
       onUrl: this.onUrl, onJson: this.onJson, jsonText: s.jsonText,
       renderJson: this.renderJson, copyPrompt: this.copyPrompt,
       promptText: this.getExternalPrompt(),
-      selectedAgentTargetId: s.selectedAgentTargetId,
-      onAgentTarget: this.onAgentTarget,
-      hasProviderChoices: Boolean(s.agentSelectionError) || (Array.isArray(s.agentTargets) && s.agentTargets.length > 1),
-      agentProviderHint: s.agentSelectionError || T('input.agentProviderHint'),
+      showAgentSelector: Boolean(s.agentSelectionError) || (Array.isArray(s.agentTargets) && s.agentTargets.length > 1),
+      agentSelectionMessage: s.agentSelectionError || T('input.agentProviderHint'),
       agentChoices: (s.agentTargets || []).map((p) => {
         const selected = p.agentTargetId === s.selectedAgentTargetId;
         return {

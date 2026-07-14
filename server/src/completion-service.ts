@@ -23,7 +23,7 @@ export type CompletePayload = {
 type CompletionType = "review_json" | "marker_json" | "plain_text";
 
 export async function completePayload(config: RuntimeConfig, payload: CompletePayload) {
-  const agentTargetId = cleanString(payload.agentTargetId);
+  const agentTargetId = cleanExactAgentTargetId(payload.agentTargetId);
   const provider = cleanString(payload.provider);
   if (agentTargetId && provider) {
     throw new BadRequestError("Provide agentTargetId or deprecated provider, not both.");
@@ -54,6 +54,14 @@ export async function completePayload(config: RuntimeConfig, payload: CompletePa
     agentProvider: session.provider,
     resumeToken: session.resumeToken,
   };
+}
+
+function cleanExactAgentTargetId(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") {
+    throw new BadRequestError("agentTargetId must be a string.");
+  }
+  return value.trim() || undefined;
 }
 
 export async function buildAgentPrompt(

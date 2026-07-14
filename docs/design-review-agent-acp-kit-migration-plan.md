@@ -1,12 +1,21 @@
 # Design Review Agent ACP Kit Migration Plan
 
+> Status: completed historical plan. This document records the migration from
+> the retired Python/provider runtime to the current Node runtime. It is not
+> current integration guidance: maintained code discovers the live Agent catalog
+> through `@tutti-os/agent-acp-kit`, selects an exact `agentTargetId`, and treats
+> provider values only as runtime metadata or deprecated compatibility input.
+
 ## Background
 
-Design Review is currently a self-contained Tutti app package. It serves the existing static Web UI from `static/index.html`, exposes `design-review review/status` through `tutti.cli.json`, and reaches an agent by shelling out to `$TUTTI_CLI --json agent ...` from `server.py`.
+Before this migration, Design Review was a self-contained Tutti app package. It
+served the existing static Web UI from `static/index.html`, exposed
+`design-review review/status` through `tutti.cli.json`, and reached an agent by
+shelling out to `$TUTTI_CLI --json agent ...` from `server.py`.
 
 That package shape passes Tutti validation, but the agent execution path does not match the newer Tutti agent app guidance: local agent execution should use `@tutti-os/agent-acp-kit` instead of hand-rolled provider detection and `$TUTTI_CLI agent ...` polling.
 
-The migration should therefore start with a smaller, safer target:
+The migration therefore started with a smaller, safer target:
 
 - Keep the Web UI unchanged in phase 1.
 - Keep `static/index.html`, `static/i18n.js`, `static/tutti-agent.js`, and current browser behavior.
@@ -14,11 +23,12 @@ The migration should therefore start with a smaller, safer target:
 - Keep `/api/complete` compatible so the current `window.claude.complete(...)` shim continues to work.
 - Keep `design-review status` and `design-review review` CLI commands compatible.
 
-Competitive Analysis remains the main reference for provider detection and `localAgentRuntime.run(...)`, but not for a full Web rewrite in the first pass.
+Competitive Analysis was the main reference for provider detection and
+`localAgentRuntime.run(...)`, but not for a full Web rewrite in the first pass.
 
 ## Recommendation
 
-Use a two-stage migration:
+The chosen plan used two stages:
 
 1. **Phase A: Server-only ACP Kit migration.**  
    Replace Python/Tutti CLI agent orchestration with a Node server using `@tutti-os/agent-acp-kit`, while serving the existing static Web files unchanged.
@@ -234,7 +244,9 @@ exec "$NODE_BIN" "$PACKAGE_DIR/server/server.js"
 7. run the Tutti factory validator against `build/tutti-app/package`
 8. optionally zip `build/tutti-app/package`
 
-The final phase A package should not ship `server.py` as the runtime server. It can remain in the repository temporarily until the Node path is stable.
+The final phase A package does not ship `server.py` as the runtime server. After
+the Node path was validated in production packaging, the legacy Python runtime
+and its provider-driven development helpers were removed from the repository.
 
 ## Phase A Implementation Steps
 

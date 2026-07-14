@@ -29,9 +29,9 @@ existing `POST /api/complete` bridge.
 - `scripts/build-server.mjs` — bundles the Node server.
 - `scripts/package-tutti-app.mjs` — builds and validates `build/tutti-app/package`.
 
-Legacy Python files (`server.py`, `server_test.py`, `scripts/package_tutti_app.py`)
-may remain in the development tree temporarily for comparison, but the publishable
-package is built from the Node runtime.
+The retired Python/provider runtime has been removed. Development, tests, and
+packaging use the Node runtime so repository examples cannot drift back to
+provider-driven agent launch commands.
 
 ## Runtime
 
@@ -152,8 +152,10 @@ pnpm package:tutti
 ```
 
 This runs `pnpm build`, copies the bundled Node server plus static assets,
-manifests, docs, icon, and locale files into `build/tutti-app/package`, marks
-`bootstrap.sh` executable, and runs the Tutti factory validator.
+manifests, current agent-facing docs (`AGENTS.md` and `COMMANDS.md`), icon, and
+locale files into `build/tutti-app/package`, marks `bootstrap.sh` executable,
+and runs the Tutti factory validator. Historical migration plans stay in the
+source repository and are not included in the published package.
 
 ## Validation
 

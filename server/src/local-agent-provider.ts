@@ -1,14 +1,20 @@
 import { mkdir, rm } from "node:fs/promises";
 
 import type { AgentEvent } from "@tutti-os/agent-acp-kit";
+import {
+  loadTuttiAgentComposerOptions,
+  loadTuttiAgentSkillContext,
+} from "@tutti-os/agent-acp-kit/tutti";
 
-import { assertProviderReady, detectAgentProviderCatalog, localAgentRuntime } from "./agent-service.js";
+import { localAgentRuntime, resolveReadyAgentTarget } from "./agent-service.js";
 import type { RuntimeConfig } from "./config.js";
 import { AgentTimeoutError } from "./errors.js";
 
 export type CompletionRunInput = {
   config: RuntimeConfig;
   runId: string;
+  agentTargetId?: string;
+  /** @deprecated Compatibility input for clients that have not migrated to Agent Target IDs. */
   provider?: string;
   model?: string;
   prompt: string;
@@ -18,26 +24,67 @@ export type CompletionRunInput = {
 
 export type CompletionRunOutput = {
   text: string;
+  agentTargetId: string;
   provider: string;
   sessionId?: string;
   resumeToken?: string;
 };
 
-export async function runLocalAgentCompletion(input: CompletionRunInput): Promise<CompletionRunOutput> {
-  await mkdir(input.runDir, { recursive: true });
-  const provider = input.provider?.trim() || (await detectAgentProviderCatalog()).defaultProvider;
-  if (!provider) {
-    throw new Error("No ready local agent provider. Install and sign in to Claude or Codex, then retry.");
-  }
-  await assertProviderReady(provider);
-
+export async function runLocalAgentCompletion(
+  input: CompletionRunInput,
+): Promise<CompletionRunOutput> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), input.timeoutMs);
   let text = "";
+  let agentTargetId = "";
+  let provider = "";
   let sessionId: string | undefined;
   let resumeToken: string | undefined;
 
   try {
+    await mkdir(input.runDir, { recursive: true });
+    const target = await abortOnSignal(
+      resolveReadyAgentTarget({
+        agentTargetId: input.agentTargetId,
+        provider: input.provider,
+        signal: controller.signal,
+      }),
+      controller.signal,
+    );
+    agentTargetId = target.agentTargetId;
+    provider = target.providerId;
+    const cwd = input.config.workspaceRoot ?? input.runDir;
+    const [composer, skillContext] = await abortOnSignal(
+      Promise.all([
+        loadTuttiAgentComposerOptions({
+          runtime: localAgentRuntime,
+          agentTargetId: target.agentTargetId,
+          model: input.model?.trim(),
+          cwd,
+          env: process.env,
+          signal: controller.signal,
+        }),
+        loadTuttiAgentSkillContext({
+          agentTargetId: target.agentTargetId,
+          agentSessionId: input.runId,
+          cwd,
+          env: process.env,
+          signal: controller.signal,
+        }),
+      ]),
+      controller.signal,
+    );
+    const model = stripProviderPrefix(
+      input.model?.trim() ||
+        composer.modelConfig.currentValue ||
+        composer.modelConfig.defaultValue ||
+        "default",
+      provider,
+    );
+    const permissionMode = composer.permissionConfig.modes.find(
+      (mode) => mode.id === composer.permissionConfig.defaultValue,
+    );
+
     for await (const event of localAgentRuntime.run({
       runId: input.runId,
       conversationId: input.runId,
@@ -45,9 +92,15 @@ export async function runLocalAgentCompletion(input: CompletionRunInput): Promis
       provider,
       runtimeKind: "local-agent",
       runtimeProvider: provider,
-      cwd: input.config.workspaceRoot ?? input.runDir,
+      cwd,
       prompt: input.prompt,
-      model: stripProviderPrefix(input.model?.trim() || "default", provider),
+      systemPrompt: skillContext.recommendedSystemPrompt?.content,
+      model,
+      reasoning:
+        composer.reasoningConfig.currentValue || composer.reasoningConfig.defaultValue || undefined,
+      permission: permissionMode
+        ? { modeId: permissionMode.id, semantic: permissionMode.semantic }
+        : undefined,
       timeoutMs: input.timeoutMs,
       extraAllowedDirs: [
         input.runDir,
@@ -56,6 +109,7 @@ export async function runLocalAgentCompletion(input: CompletionRunInput): Promis
         ...(input.config.workspaceRoot ? [input.config.workspaceRoot] : []),
       ],
       signal: controller.signal,
+      skillManifest: skillContext.skillManifest,
     })) {
       const mapped = mapAgentEvent(event);
       if (mapped.type === "text") text += mapped.text;
@@ -84,7 +138,28 @@ export async function runLocalAgentCompletion(input: CompletionRunInput): Promis
     await rm(input.runDir, { recursive: true, force: true }).catch(() => undefined);
   }
 
-  return { text: text.trim(), provider, sessionId, resumeToken };
+  return {
+    text: text.trim(),
+    agentTargetId,
+    provider,
+    sessionId,
+    resumeToken,
+  };
+}
+
+function abortOnSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new AgentTimeoutError("等待评审 Agent 返回结果超时。"));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new AgentTimeoutError("等待评审 Agent 返回结果超时。"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
+  });
 }
 
 type MappedAgentEvent =

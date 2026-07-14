@@ -29,9 +29,13 @@
             "type": "string",
             "description": "Output language for the report, e.g. zh-CN or en. Defaults to zh-CN."
           },
+          "agent-id": {
+            "type": "string",
+            "description": "Optional exact Agent Target ID. Discover current values with `tutti agent list --json`."
+          },
           "provider": {
             "type": "string",
-            "description": "Optional local agent provider override, e.g. claude or codex."
+            "description": "Deprecated provider compatibility input. It is accepted only when exactly one current Agent Target uses the provider."
           },
           "model": {
             "type": "string",
@@ -106,7 +110,7 @@
     {
       "path": ["status"],
       "summary": "Report design-review service status",
-      "description": "Return the app id, version, configured agent provider and its availability, so callers can discover the capability and check readiness before invoking review.",
+      "description": "Return the app id, version, default Agent Target and current Agent availability, so callers can check readiness before invoking review.",
       "inputSchema": {
         "type": "object",
         "properties": {}

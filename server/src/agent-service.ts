@@ -1,8 +1,11 @@
 import { createDefaultLocalAgentRuntime } from "@tutti-os/agent-acp-kit";
-import { loadTuttiAgentProviderCatalog } from "@tutti-os/agent-acp-kit/tutti";
+import { loadTuttiAgentCatalog } from "@tutti-os/agent-acp-kit/tutti";
 
-export type AgentProviderSummary = {
-  provider: string;
+import { BadRequestError } from "./errors.js";
+
+export type AgentTargetSummary = {
+  agentTargetId: string;
+  providerId: string;
   label: string;
   detected: boolean;
   supported: boolean;
@@ -11,27 +14,30 @@ export type AgentProviderSummary = {
   reason?: string;
 };
 
-export type AgentProviderCatalog = {
-  defaultProvider: string | null;
-  providers: AgentProviderSummary[];
+export type AgentTargetCatalog = {
+  defaultAgentTargetId: string | null;
+  agents: AgentTargetSummary[];
 };
 
 export const localAgentRuntime = createDefaultLocalAgentRuntime();
 
 const DETECTION_TTL_MS = 30_000;
-let detectionCache: { at: number; value: AgentProviderCatalog } | null = null;
-let detectionInFlight: Promise<AgentProviderCatalog> | null = null;
+let detectionCache: { at: number; value: AgentTargetCatalog } | null = null;
+let detectionInFlight: Promise<AgentTargetCatalog> | null = null;
 
 export function listRegisteredProviderIds(): string[] {
   return localAgentRuntime.listProviders().map((provider) => provider.id);
 }
 
-export async function detectAgentProviderCatalog(
-  options: { maxAgeMs?: number } = {},
-): Promise<AgentProviderCatalog> {
+export async function detectAgentTargetCatalog(
+  options: { maxAgeMs?: number; signal?: AbortSignal } = {},
+): Promise<AgentTargetCatalog> {
   const maxAgeMs = options.maxAgeMs ?? DETECTION_TTL_MS;
   if (detectionCache && Date.now() - detectionCache.at <= maxAgeMs) {
     return detectionCache.value;
+  }
+  if (options.signal) {
+    return runDetection(options.signal);
   }
   if (!detectionInFlight) {
     detectionInFlight = runDetection()
@@ -46,77 +52,131 @@ export async function detectAgentProviderCatalog(
   return detectionInFlight;
 }
 
-export async function detectAgentProviders(
-  options: { maxAgeMs?: number } = {},
-): Promise<AgentProviderSummary[]> {
-  return (await detectAgentProviderCatalog(options)).providers;
+export function warmAgentTargets(): void {
+  void detectAgentTargetCatalog({ maxAgeMs: 0 }).catch(() => undefined);
 }
 
-export function warmAgentProviders(): void {
-  void detectAgentProviderCatalog({ maxAgeMs: 0 }).catch(() => undefined);
-}
-
-export function pickDefaultProvider(
-  providers: AgentProviderSummary[],
+export function pickDefaultAgentTarget(
+  agents: AgentTargetSummary[],
   preferred?: string | null,
 ): string | null {
-  const ready = providers.filter((provider) => provider.status === "ready");
+  const ready = agents.filter((agent) => agent.status === "ready");
   const requested = preferred?.trim();
-  return ready.find((provider) => provider.provider === requested)?.provider
-    ?? ready[0]?.provider
-    ?? null;
+  return (
+    ready.find((agent) => agent.agentTargetId === requested)?.agentTargetId ??
+    ready[0]?.agentTargetId ??
+    null
+  );
 }
 
-export async function assertProviderReady(provider: string): Promise<AgentProviderSummary> {
-  const catalog = await detectAgentProviderCatalog();
-  const match = catalog.providers.find((item) => item.provider === provider);
+export async function resolveReadyAgentTarget(input: {
+  agentTargetId?: string;
+  provider?: string;
+  signal?: AbortSignal;
+}): Promise<AgentTargetSummary> {
+  const catalog = await detectAgentTargetCatalog({ signal: input.signal });
+  return resolveReadyAgentTargetFromCatalog(catalog, input);
+}
+
+export function resolveReadyAgentTargetFromCatalog(
+  catalog: AgentTargetCatalog,
+  input: { agentTargetId?: string; provider?: string },
+): AgentTargetSummary {
+  const requestedTarget = input.agentTargetId?.trim();
+  let match = requestedTarget
+    ? catalog.agents.find((agent) => agent.agentTargetId === requestedTarget)
+    : undefined;
+  if (!match && !requestedTarget && input.provider?.trim()) {
+    const providerMatches = catalog.agents.filter(
+      (agent) => agent.providerId === input.provider?.trim(),
+    );
+    if (providerMatches.length > 1) {
+      throw new BadRequestError(
+        `Multiple agents use provider ${input.provider}; select an exact agent target id.`,
+      );
+    }
+    match = providerMatches[0];
+  }
+  if (!match && !requestedTarget && !input.provider?.trim()) {
+    match = catalog.agents.find((agent) => agent.agentTargetId === catalog.defaultAgentTargetId);
+  }
   if (!match) {
-    throw new Error(`Provider is not exposed by the Tutti agent catalog: ${provider}`);
+    throw new BadRequestError(
+      requestedTarget
+        ? `Agent target is not exposed by the Tutti agent catalog: ${requestedTarget}`
+        : "No ready local agent. Check the current Tutti agent list, then retry.",
+    );
   }
   if (match.status !== "ready") {
-    throw new Error(match.reason ?? `${provider} local agent is not ready.`);
+    throw new BadRequestError(match.reason ?? `${match.label} is not ready.`);
   }
   return match;
 }
 
-async function runDetection(): Promise<AgentProviderCatalog> {
+async function runDetection(signal?: AbortSignal): Promise<AgentTargetCatalog> {
   try {
     const [catalog, detections] = await Promise.all([
-      loadTuttiAgentProviderCatalog({ runtime: localAgentRuntime }),
+      loadTuttiAgentCatalog({ runtime: localAgentRuntime, signal }),
       localAgentRuntime.detect(),
     ]);
     const detectionByProvider = new Map(
       detections.map((detection) => [detection.provider, detection]),
     );
-    const providers = catalog.providers.map((provider) => {
-      const detection = detectionByProvider.get(provider.providerId);
-      const result = detection?.result;
-      const detected = Boolean(result);
-      const supported = provider.runtimeSupported && result?.supported !== false;
-      const ready =
-        detected &&
-        supported &&
-        provider.availability.status === "available";
+    const agents = catalog.agents.map((agent) => {
+      const detection = detectionByProvider.get(agent.providerId);
+      const detected = runtimeWasDetected(
+        agent.availability.reasonCode,
+        detection?.reason,
+        Boolean(detection),
+      );
+      const supported = agent.runtimeSupported && detection?.supported !== false;
+      const ready = detected && supported && agent.availability.status === "available";
       return {
-        provider: provider.providerId,
-        label: provider.displayName,
+        agentTargetId: agent.agentTargetId,
+        providerId: agent.providerId,
+        label: agent.displayName,
         detected,
         supported,
-        status: ready ? "ready" : provider.runtimeSupported && !detected ? "not-installed" : "unsupported",
-        models: result?.models?.map((model) => model.id) ?? [],
-        reason:
-          provider.availability.detail ||
-          result?.unsupportedReason ||
-          authReason(result?.authState),
-      } satisfies AgentProviderSummary;
+        status: ready
+          ? "ready"
+          : agent.runtimeSupported && !detected
+            ? "not-installed"
+            : "unsupported",
+        models: detection?.models?.map((model) => model.id) ?? [],
+        reason: agent.availability.detail || detection?.reason || authReason(detection?.authState),
+      } satisfies AgentTargetSummary;
     });
     return {
-      defaultProvider: pickDefaultProvider(providers, catalog.defaultProviderId),
-      providers,
+      defaultAgentTargetId: pickDefaultAgentTarget(agents, catalog.defaultAgentTargetId),
+      agents,
     };
   } catch {
-    return { defaultProvider: null, providers: [] };
+    return { defaultAgentTargetId: null, agents: [] };
   }
+}
+
+export function runtimeWasDetected(
+  availabilityReasonCode: string | undefined,
+  detectionReason: string | undefined,
+  hasDetection: boolean,
+): boolean {
+  if (!hasDetection) return false;
+  const code = availabilityReasonCode?.trim().toLowerCase() ?? "";
+  if (
+    code === "runtime_not_detected" ||
+    code === "cli_not_found" ||
+    code.includes("not_installed") ||
+    code.includes("executable_not_found")
+  ) {
+    return false;
+  }
+  const reason = detectionReason?.trim().toLowerCase() ?? "";
+  return !(
+    reason.includes("executable not found") ||
+    reason.includes("executable was not found") ||
+    reason.includes("runtime was not detected") ||
+    reason.includes("runtime is not installed")
+  );
 }
 
 function authReason(authState: string | undefined): string | undefined {

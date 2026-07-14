@@ -1,6 +1,6 @@
 import type { RuntimeConfig } from "./config.js";
 import { BadRequestError } from "./errors.js";
-import { detectAgentProviderCatalog } from "./agent-service.js";
+import { detectAgentTargetCatalog } from "./agent-service.js";
 import { extractJsonText, isJsonReviewText } from "./json-utils.js";
 import { runLocalAgentCompletion } from "./local-agent-provider.js";
 import { validateImagePath } from "./image-store.js";
@@ -13,19 +13,19 @@ const CLI_REVIEW_TIMEOUT_MS = 280_000;
 
 export async function cliStatus(config: RuntimeConfig, payload: unknown) {
   cliCommandInput(payload);
-  const catalog = await detectAgentProviderCatalog({ maxAgeMs: 0 });
-  const provider = catalog.defaultProvider;
-  const providerAvailable = Boolean(provider);
+  const catalog = await detectAgentTargetCatalog({ maxAgeMs: 0 });
+  const agentTargetId = catalog.defaultAgentTargetId;
+  const agentAvailable = Boolean(agentTargetId);
   const value: Record<string, unknown> = {
     appId: config.appId,
     version: config.appVersion,
-    provider: provider ?? "none",
-    providerAvailable,
-    ok: providerAvailable,
-    providers: catalog.providers,
+    agentTargetId: agentTargetId ?? "none",
+    agentAvailable,
+    ok: agentAvailable,
+    agents: catalog.agents,
   };
-  if (!providerAvailable) {
-    value.error = "No ready local agent provider. Install and sign in to Claude or Codex, then retry.";
+  if (!agentAvailable) {
+    value.error = "No ready local agent. Check the current Tutti agent list, then retry.";
   }
   return { kind: "json", value };
 }
@@ -34,7 +34,20 @@ export async function cliReview(config: RuntimeConfig, payload: unknown) {
   const input = cliCommandInput(payload);
   const url = cleanString(input.url);
   let imagePath = cleanString(input["image-path"]) || cleanString(input.imagePath);
+  const canonicalAgentTargetId = cleanString(input["agent-id"]);
+  const aliasAgentTargetId = cleanString(input.agentTargetId);
+  if (
+    canonicalAgentTargetId &&
+    aliasAgentTargetId &&
+    canonicalAgentTargetId !== aliasAgentTargetId
+  ) {
+    throw new BadRequestError("agent-id and agentTargetId must match when both are provided.");
+  }
+  const agentTargetId = canonicalAgentTargetId || aliasAgentTargetId;
   const provider = cleanString(input.provider);
+  if (agentTargetId && provider) {
+    throw new BadRequestError("Provide agent-id or deprecated provider, not both.");
+  }
   const model = cleanString(input.model);
   const strictness = normalizeStrictness(input.strictness);
   const locale = normalizeLocale(input.locale, config.defaultLocale);
@@ -55,6 +68,7 @@ export async function cliReview(config: RuntimeConfig, payload: unknown) {
     config,
     runId,
     runDir,
+    agentTargetId,
     provider,
     model,
     prompt,
@@ -71,7 +85,10 @@ export async function cliHistory(config: RuntimeConfig, payload: unknown) {
   const limit = normalizeHistoryLimit(input.limit);
   const reviews = await listReviews(config);
   const limited = limit === undefined ? reviews : reviews.slice(0, limit);
-  return { kind: "json", value: { count: limited.length, total: reviews.length, reviews: limited } };
+  return {
+    kind: "json",
+    value: { count: limited.length, total: reviews.length, reviews: limited },
+  };
 }
 
 function normalizeHistoryLimit(value: unknown): number | undefined {
@@ -99,9 +116,12 @@ function cliCommandInput(payload: unknown): Record<string, unknown> {
   const schemaVersion = String(value.schemaVersion ?? "");
   const isEnvelope =
     schemaVersion.startsWith("tutti.app.cli.invoke") ||
-    ("input" in value && ["commandId", "path", "outputMode", "scope", "context"].some((key) => key in value));
+    ("input" in value &&
+      ["commandId", "path", "outputMode", "scope", "context"].some((key) => key in value));
   if (isEnvelope) {
-    return value.input && typeof value.input === "object" ? (value.input as Record<string, unknown>) : {};
+    return value.input && typeof value.input === "object"
+      ? (value.input as Record<string, unknown>)
+      : {};
   }
   return value;
 }

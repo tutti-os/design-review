@@ -234,7 +234,9 @@ exec "$NODE_BIN" "$PACKAGE_DIR/server/server.js"
 7. run the Tutti factory validator against `build/tutti-app/package`
 8. optionally zip `build/tutti-app/package`
 
-The final phase A package should not ship `server.py` as the runtime server. It can remain in the repository temporarily until the Node path is stable.
+The final phase A package does not ship `server.py` as the runtime server. After
+the Node path was validated in production packaging, the legacy Python runtime
+and its provider-driven development helpers were removed from the repository.
 
 ## Phase A Implementation Steps
 

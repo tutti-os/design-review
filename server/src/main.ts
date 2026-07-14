@@ -7,26 +7,35 @@ import { createRuntimeConfig } from "./config.js";
 import { BadRequestError, AgentTimeoutError } from "./errors.js";
 import { completePayload } from "./completion-service.js";
 import { cliExport, cliHistory, cliReview, cliStatus } from "./cli-service.js";
-import { detectAgentProviderCatalog, warmAgentProviders } from "./agent-service.js";
-import { createReview, exportReview, listReviews, normalizeExportFormat, readReview, updateReview } from "./review-store.js";
+import { detectAgentTargetCatalog, warmAgentTargets } from "./agent-service.js";
+import {
+  createReview,
+  exportReview,
+  listReviews,
+  normalizeExportFormat,
+  readReview,
+  updateReview,
+} from "./review-store.js";
 import { getCompletionJob, startCompletionJob } from "./completion-jobs.js";
 
 const I18N_PLACEHOLDER = "<!--__TUTTI_I18N__-->";
 
 const config = await createRuntimeConfig();
 const app = Fastify({ logger: false, bodyLimit: 16 * 1024 * 1024 });
-warmAgentProviders();
+warmAgentTargets();
 
 app.get("/healthz", async () => ({ ok: true }));
 
-app.get("/favicon.ico", async (_request, reply) => reply.header("Cache-Control", "no-store").code(204).send());
+app.get("/favicon.ico", async (_request, reply) =>
+  reply.header("Cache-Control", "no-store").code(204).send(),
+);
 
 app.get("/api/agents", async (_request, reply) => {
   try {
-    const catalog = await detectAgentProviderCatalog({ maxAgeMs: 0 });
+    const catalog = await detectAgentTargetCatalog({ maxAgeMs: 0 });
     return {
-      defaultProvider: catalog.defaultProvider,
-      providers: catalog.providers.filter((provider) => provider.status === "ready"),
+      defaultAgentTargetId: catalog.defaultAgentTargetId,
+      agents: catalog.agents.filter((agent) => agent.status === "ready"),
     };
   } catch (error) {
     return sendApiError(reply, error, "读取本地 Agent 列表失败。");
@@ -35,7 +44,10 @@ app.get("/api/agents", async (_request, reply) => {
 
 app.post("/api/complete", async (request, reply) => {
   try {
-    return await completePayload(config, request.body && typeof request.body === "object" ? request.body : {});
+    return await completePayload(
+      config,
+      request.body && typeof request.body === "object" ? request.body : {},
+    );
   } catch (error) {
     return sendApiError(reply, error, "评审服务异常。");
   }
@@ -77,7 +89,9 @@ app.get("/api/reviews", async (_request, reply) => {
 
 app.get("/api/reviews/:id/export", async (request, reply) => {
   try {
-    const format = normalizeExportFormat((request.query as { format?: string } | undefined)?.format);
+    const format = normalizeExportFormat(
+      (request.query as { format?: string } | undefined)?.format,
+    );
     const result = await exportReview(config, (request.params as { id?: string }).id, format);
     if (!result) return reply.code(404).send({ error: "评审结果不存在。" });
     return reply
@@ -152,7 +166,10 @@ app.get("/*", async (request, reply) => {
   const target = safeStaticPath(requestPath);
   if (!target) return reply.code(404).send({ error: "Not found" });
   if (target === path.join(config.staticDir, "index.html")) {
-    return reply.header("Cache-Control", "no-store").type("text/html; charset=utf-8").send(await renderIndexHtml());
+    return reply
+      .header("Cache-Control", "no-store")
+      .type("text/html; charset=utf-8")
+      .send(await renderIndexHtml());
   }
   return sendFile(reply, target);
 });
@@ -177,7 +194,9 @@ async function loadAppI18n(): Promise<Record<string, unknown>> {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       try {
-        messages[entry.name] = JSON.parse(await readFile(path.join(config.localesDir, entry.name, "app.json"), "utf8"));
+        messages[entry.name] = JSON.parse(
+          await readFile(path.join(config.localesDir, entry.name, "app.json"), "utf8"),
+        );
       } catch {
         continue;
       }
@@ -196,7 +215,11 @@ function safeStaticPath(requestPath: string): string | null {
   return target;
 }
 
-function safePackagePath(packageDir: string, requestPath: string, allowedRoot: string): string | null {
+function safePackagePath(
+  packageDir: string,
+  requestPath: string,
+  allowedRoot: string,
+): string | null {
   const relativePath = decodeURIComponent(requestPath).replace(/^\/+/, "");
   const target = path.resolve(packageDir, relativePath);
   const root = path.resolve(allowedRoot);
@@ -204,7 +227,15 @@ function safePackagePath(packageDir: string, requestPath: string, allowedRoot: s
   return target;
 }
 
-async function sendFile(reply: { header: (name: string, value: string) => unknown; type: (contentType: string) => unknown; code: (status: number) => { send: (body: unknown) => unknown }; send: (body: unknown) => unknown }, target: string) {
+async function sendFile(
+  reply: {
+    header: (name: string, value: string) => unknown;
+    type: (contentType: string) => unknown;
+    code: (status: number) => { send: (body: unknown) => unknown };
+    send: (body: unknown) => unknown;
+  },
+  target: string,
+) {
   try {
     const data = await readFile(target);
     reply.header("Cache-Control", "no-store");
@@ -225,14 +256,29 @@ function contentTypeFor(filePath: string): string {
   return "text/plain; charset=utf-8";
 }
 
-function sendApiError(reply: { code: (status: number) => { send: (body: unknown) => unknown } }, error: unknown, fallback: string) {
-  const status = error instanceof BadRequestError || error instanceof AgentTimeoutError ? error.statusCode : 500;
+function sendApiError(
+  reply: { code: (status: number) => { send: (body: unknown) => unknown } },
+  error: unknown,
+  fallback: string,
+) {
+  const status =
+    error instanceof BadRequestError || error instanceof AgentTimeoutError ? error.statusCode : 500;
   return reply.code(status).send({ error: errorMessage(error) || fallback });
 }
 
-function sendCliError(reply: { code: (status: number) => { send: (body: unknown) => unknown } }, error: unknown, fallback: string) {
-  const status = error instanceof BadRequestError || error instanceof AgentTimeoutError ? error.statusCode : 500;
-  const code = error instanceof BadRequestError ? "invalid_input" : error instanceof AgentTimeoutError ? "timeout" : "internal_error";
+function sendCliError(
+  reply: { code: (status: number) => { send: (body: unknown) => unknown } },
+  error: unknown,
+  fallback: string,
+) {
+  const status =
+    error instanceof BadRequestError || error instanceof AgentTimeoutError ? error.statusCode : 500;
+  const code =
+    error instanceof BadRequestError
+      ? "invalid_input"
+      : error instanceof AgentTimeoutError
+        ? "timeout"
+        : "internal_error";
   return reply.code(status).send({ error: { code, message: errorMessage(error) || fallback } });
 }
 

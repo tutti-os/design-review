@@ -3,12 +3,19 @@ import { randomUUID } from "node:crypto";
 
 import type { RuntimeConfig } from "./config.js";
 import { BadRequestError } from "./errors.js";
-import { extractJsonArrayText, extractJsonText, isJsonArrayText, isJsonReviewText } from "./json-utils.js";
+import {
+  extractJsonArrayText,
+  extractJsonText,
+  isJsonArrayText,
+  isJsonReviewText,
+} from "./json-utils.js";
 import { runLocalAgentCompletion } from "./local-agent-provider.js";
 import { saveBase64Image } from "./image-store.js";
 
 export type CompletePayload = {
   messages?: unknown;
+  agentTargetId?: unknown;
+  /** @deprecated Compatibility input. */
   provider?: unknown;
   model?: unknown;
 };
@@ -16,6 +23,11 @@ export type CompletePayload = {
 type CompletionType = "review_json" | "marker_json" | "plain_text";
 
 export async function completePayload(config: RuntimeConfig, payload: CompletePayload) {
+  const agentTargetId = cleanString(payload.agentTargetId);
+  const provider = cleanString(payload.provider);
+  if (agentTargetId && provider) {
+    throw new BadRequestError("Provide agentTargetId or deprecated provider, not both.");
+  }
   const prompt = await buildAgentPrompt(config, payload);
   const completionType = completionTypeForPrompt(prompt);
   const runId = `design-review-${randomUUID()}`;
@@ -24,7 +36,8 @@ export async function completePayload(config: RuntimeConfig, payload: CompletePa
     config,
     runId,
     runDir,
-    provider: cleanString(payload.provider),
+    agentTargetId,
+    provider,
     model: cleanString(payload.model),
     prompt,
     timeoutMs: 300_000,
@@ -37,12 +50,16 @@ export async function completePayload(config: RuntimeConfig, payload: CompletePa
   return {
     text: normalizeCompletionText(session.text, completionType),
     agentSessionId: session.sessionId ?? runId,
+    agentTargetId: session.agentTargetId,
     agentProvider: session.provider,
     resumeToken: session.resumeToken,
   };
 }
 
-export async function buildAgentPrompt(config: RuntimeConfig, payload: CompletePayload): Promise<string> {
+export async function buildAgentPrompt(
+  config: RuntimeConfig,
+  payload: CompletePayload,
+): Promise<string> {
   const messages = payload.messages;
   if (!Array.isArray(messages) || messages.length === 0) {
     throw new BadRequestError("缺少 messages。");
@@ -68,7 +85,10 @@ export async function buildAgentPrompt(config: RuntimeConfig, payload: CompleteP
     }
   }
 
-  let prompt = parts.map((part) => part.trim()).filter(Boolean).join("\n\n");
+  let prompt = parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n");
   if (!prompt) throw new BadRequestError("缺少 prompt 内容。");
   if (imagePaths.length > 0) {
     prompt += `\n\n# 本地图片文件\n${imagePaths.map((imagePath) => `- ${imagePath}`).join("\n")}`;
@@ -78,7 +98,10 @@ export async function buildAgentPrompt(config: RuntimeConfig, payload: CompleteP
 }
 
 async function saveImageContent(config: RuntimeConfig, sourceValue: unknown): Promise<string> {
-  const source = sourceValue && typeof sourceValue === "object" ? (sourceValue as { data?: unknown; media_type?: unknown }) : {};
+  const source =
+    sourceValue && typeof sourceValue === "object"
+      ? (sourceValue as { data?: unknown; media_type?: unknown })
+      : {};
   return saveBase64Image({
     runtimeDir: config.runtimeDir,
     data: String(source.data ?? ""),

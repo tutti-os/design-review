@@ -80,8 +80,8 @@ pnpm dev
 - `GET /` — serves `static/index.html` with `window.__TUTTI_I18N__` injected.
 - `GET /static asset` and `GET /locales/<locale>/app.json` — package assets.
 - `POST /api/complete` — Web bridge. Body `{ "messages": [...] }` with optional
-  `provider` / `model`. Returns `{ "text": "...", "agentSessionId": "...",
-  "agentProvider": "..." }`.
+  `agentTargetId` / `model` and deprecated `provider` compatibility input.
+  Returns exact `agentTargetId` plus runtime `agentProvider` metadata.
 - `POST /api/reviews` / `GET /api/reviews/:id` / `PATCH /api/reviews/:id` —
   create/read/update a persisted review (`TUTTI_APP_DATA_DIR/reviews/<id>.json`).
 - `GET /api/reviews` — list saved review summaries (most recent first) for the
@@ -94,21 +94,21 @@ pnpm dev
   `{ "kind": "json", "value": { count, total, reviews } }`.
 - `POST /tutti/cli/export` — CLI `export` handler. Body `{ id, format }`. Returns
   `{ "kind": "json", "value": { id, format, filename, content } }`.
-- `POST /tutti/cli/status` — CLI `status` handler. Reports ACP Kit provider
-  readiness; `ok` is true only when a ready local provider exists.
+- `POST /tutti/cli/status` — CLI `status` handler. Reports ACP Kit Agent Target
+  readiness; `ok` is true only when a ready Agent exists.
 
 CLI handlers accept the Tutti invoke envelope and also direct raw input as a
 local-test/backward-compatible path.
 
-## Agent Provider
+## Agent Targets
 
 The runtime uses `@tutti-os/agent-acp-kit`:
 
-- provider detection is cached briefly;
-- the Tutti/SDK catalog default is used when it is ready;
-- otherwise the first ready catalog provider is used;
-- `/api/complete` and `design-review review` can accept optional `provider` and
-  `model` overrides;
+- Agent Target discovery is cached briefly;
+- the exact Tutti catalog default is used when it is ready;
+- otherwise the first ready catalog Agent is used;
+- `/api/complete` and `design-review review` accept exact Agent Target IDs and
+  optional model overrides; provider input remains compatibility-only;
 - no `$TUTTI_CLI agent ...` polling is used for local agent execution.
 
 ## Tutti Ecosystem
@@ -119,7 +119,7 @@ Other Tutti apps and agents can call:
 "$TUTTI_CLI" --json design-review status
 "$TUTTI_CLI" --json design-review review --url https://example.com --locale en
 "$TUTTI_CLI" --json design-review review --image-path /abs/screen.png --strictness strict
-"$TUTTI_CLI" --json design-review review --url https://example.com --provider codex
+"$TUTTI_CLI" --json design-review review --url https://example.com --agent-id <agent-target-id>
 "$TUTTI_CLI" --json design-review history --limit 20
 "$TUTTI_CLI" --json design-review export --id <review-id> --format md
 ```
@@ -143,7 +143,7 @@ file and keep flattened key sets aligned.
 - Keep runtime writes out of `TUTTI_APP_PACKAGE_DIR`.
 - Use `@tutti-os/agent-acp-kit` for local agent execution.
 - Update this file and `COMMANDS.md` when endpoints, CLI commands, storage, or
-  provider behavior changes.
+  Agent Target behavior changes.
 
 ## Packaging
 

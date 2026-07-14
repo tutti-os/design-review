@@ -5,7 +5,7 @@ This app exposes its design-critique capability through `tutti.cli.json`
 `POST /tutti/cli/*` and return a `CliCommandOutput` envelope:
 `{ "kind": "json", "value": ... }`.
 
-The runtime uses `@tutti-os/agent-acp-kit` for local provider detection and agent
+The runtime uses `@tutti-os/agent-acp-kit` for dynamic Agent Target discovery and agent
 execution. It does not call `$TUTTI_CLI agent ...` internally.
 
 Discover at runtime:
@@ -32,9 +32,11 @@ Inputs:
 - `--strictness <string>` — `relaxed` | `standard` | `strict`; Chinese
   `宽松` | `标准` | `严苛` are also accepted.
 - `--locale <string>` — output language, e.g. `zh-CN` or `en`.
-- `--provider <string>` — optional local agent provider override, e.g. `claude`
-  or `codex`.
-- `--model <string>` — optional model override for the selected provider.
+- `--agent-id <string>` — optional exact Agent Target ID. Discover current values
+  with `tutti agent list --json`.
+- `--provider <string>` — deprecated compatibility input, accepted only when one
+  current Agent Target uniquely uses that provider.
+- `--model <string>` — optional model override for the selected Agent.
 
 Output `value`:
 
@@ -43,10 +45,19 @@ Output `value`:
   "overall": 82,
   "summary": "Clear hierarchy, weak conversion",
   "dimensions": [
-    { "name": "Visual hierarchy / layout", "score": 82, "verdict": "Clear", "detail": "Hero focus reads well" }
+    {
+      "name": "Visual hierarchy / layout",
+      "score": 82,
+      "verdict": "Clear",
+      "detail": "Hero focus reads well"
+    }
   ],
   "suggestions": [
-    { "priority": "high", "title": "Strengthen the primary CTA", "desc": "Raise contrast and reduce competing actions" }
+    {
+      "priority": "high",
+      "title": "Strengthen the primary CTA",
+      "desc": "Raise contrast and reduce competing actions"
+    }
   ]
 }
 ```
@@ -56,7 +67,7 @@ Examples:
 ```sh
 "$TUTTI_CLI" --json design-review review --url "https://example.com" --locale en
 "$TUTTI_CLI" --json design-review review --image-path "/abs/path/to/screen.png" --strictness strict
-"$TUTTI_CLI" --json design-review review --url "https://example.com" --provider codex
+"$TUTTI_CLI" --json design-review review --url "https://example.com" --agent-id <agent-target-id>
 ```
 
 Notes:
@@ -137,7 +148,7 @@ report download the report via `GET /api/reviews/:id/export?format=md|json`.
 
 ## `design-review status`
 
-Return app id, version, selected/default provider, and ACP Kit provider readiness.
+Return app id, version, default Agent Target, and ACP Kit Agent readiness.
 
 Inputs: none.
 
@@ -147,16 +158,22 @@ Output `value`:
 {
   "appId": "design-review",
   "version": "0.1.0",
-  "provider": "claude-code",
-  "providerAvailable": true,
+  "agentTargetId": "local:example",
+  "agentAvailable": true,
   "ok": true,
-  "providers": [
-    { "provider": "claude-code", "label": "Claude Code", "status": "ready", "models": ["default"] }
+  "agents": [
+    {
+      "agentTargetId": "local:example",
+      "providerId": "example",
+      "label": "Example Agent",
+      "status": "ready",
+      "models": ["default"]
+    }
   ]
 }
 ```
 
-`ok` is true only when at least one local provider is ready.
+`ok` is true only when at least one current Agent Target is ready.
 
 Example:
 

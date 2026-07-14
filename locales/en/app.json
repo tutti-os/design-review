@@ -39,6 +39,8 @@
     "replaceImage": "Replace",
     "agentProviderLabel": "Pick a critic",
     "agentProviderHint": "Switch anytime",
+    "agentSelectionStale": "The saved Agent selection is no longer unique. Select an Agent again.",
+    "agentSelectionRequired": "Select an Agent before starting the review.",
     "analyze": "Start the critique →",
     "promptToggleShow": "View the prompt sent to the review agent ▾",
     "promptToggleHide": "Hide prompt ▴",

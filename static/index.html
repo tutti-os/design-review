@@ -176,7 +176,7 @@
               <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">{{ agentProviderHint }}</div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-              <sc-for list="{{ providerChoices }}" as="p" hint-placeholder-count="2">
+              <sc-for list="{{ agentChoices }}" as="p" hint-placeholder-count="2">
                 <button onClick="{{ p.onSelect }}" style="display:flex; align-items:center; gap:7px; min-height:42px; padding:9px 12px; border:2px solid {{ p.border }}; border-radius:999px; background:{{ p.bg }}; color:{{ p.fg }}; box-shadow:{{ p.shadow }}; cursor:pointer; font-family:'Space Grotesk'; font-size:13px; font-weight:800;">
                   <span style="width:8px; height:8px; border-radius:50%; background:{{ p.dot }}; display:inline-block;"></span>
                   <span>{{ p.label }}</span>
@@ -454,8 +454,12 @@ class Component extends DCLogic {
       jsonText: '',
       copied: false,
       showPrompt: false,
-      agentProviders: [],
-      selectedProvider: '',
+      agentTargets: [],
+      defaultAgentTargetId: '',
+      selectedAgentTargetId: '',
+      agentTargetId: '',
+      legacySelectedProvider: '',
+      agentSelectionError: '',
       agentsLoading: false,
       annotateMode: false,
       annotations: [],   // { id, box:{x,y,w,h}, comment, reply, status:'draft'|'sending'|'done' }
@@ -521,11 +525,11 @@ class Component extends DCLogic {
     ? ('Website link: ' + link + '\n(You cannot browse it live; review from what you know about this site/category, or from best practices for this kind of site.)')
     : ('网站链接：' + link + '\n（你无法实时访问该网站，请基于既有了解评审；若不了解，请基于该类网站的最佳实践给出有针对性的评审。）');
 
-  componentDidMount(){
+  async componentDidMount(){
     try { document.documentElement.lang = this.state.locale; } catch(e){}
     window.addEventListener('hashchange', this.onReviewRouteChange);
-    this.loadReviewFromRoute();
-    this.loadAgentProviders();
+    await this.loadReviewFromRoute();
+    await this.loadAgentTargets();
     if(!window.TuttiI18n) return;
     window.TuttiI18n.readHostLocale().then((L) => { if(L) this.applyLocale(L); }).catch(()=>{});
     this._unsubLocale = window.TuttiI18n.subscribeHostLocale((L) => { if(L) this.applyLocale(L); });
@@ -543,7 +547,10 @@ class Component extends DCLogic {
   };
   reviewHash = (id) => '#/review/' + encodeURIComponent(id);
   setStateAsync = (patch) => new Promise(resolve => this.setState(patch, resolve));
-  onReviewRouteChange = () => this.loadReviewFromRoute();
+  onReviewRouteChange = async () => {
+    await this.loadReviewFromRoute();
+    await this.loadAgentTargets();
+  };
   loadReviewFromRoute = async () => {
     const id = this.reviewIdFromHash();
     if(!id){
@@ -558,7 +565,7 @@ class Component extends DCLogic {
       const payload = await resp.json();
       const review = payload && payload.review;
       this._reviewId = review && review.id ? review.id : id;
-      this.restoreReviewState((review && review.state) || {});
+      await this.restoreReviewState((review && review.state) || {});
     } catch(err){
       this._reviewId = '';
       this.setState({ status:'error', error: String((err && err.message) || err) });
@@ -566,14 +573,14 @@ class Component extends DCLogic {
       this._restoringReview = false;
     }
   };
-  restoreReviewState = (saved) => {
+  restoreReviewState = async (saved) => {
     const mode = ['url','image','json'].indexOf(saved.mode) >= 0 ? saved.mode : 'url';
     const locale = typeof saved.locale === 'string' ? saved.locale : this.state.locale;
     const savedStatus = ['analyzing','done','error'].indexOf(saved.status) >= 0 ? saved.status : (saved.result ? 'done' : 'input');
     this.DIMS = this.dimsFor(locale);
     this.STEPS = this.stepsFor(locale);
     try { document.documentElement.lang = locale; } catch(e){}
-    this.setState({
+    await this.setStateAsync({
       mode,
       url: typeof saved.url === 'string' ? saved.url : '',
       shotConsent: !!saved.shotConsent,
@@ -590,7 +597,9 @@ class Component extends DCLogic {
       copied: false,
       exportError: '',
       showPrompt: false,
-      selectedProvider: typeof saved.selectedProvider === 'string' ? saved.selectedProvider : this.state.selectedProvider,
+      selectedAgentTargetId: typeof saved.selectedAgentTargetId === 'string' ? saved.selectedAgentTargetId : '',
+      agentTargetId: typeof saved.agentTargetId === 'string' ? saved.agentTargetId : '',
+      legacySelectedProvider: typeof saved.selectedProvider === 'string' ? saved.selectedProvider : '',
       annotateMode: false,
       annotations: Array.isArray(saved.annotations) ? saved.annotations : [],
       drawing: false,
@@ -636,7 +645,8 @@ class Component extends DCLogic {
       error: s.error,
       result: s.result,
       reviewJobId: s.reviewJobId || '',
-      selectedProvider: s.selectedProvider,
+      selectedAgentTargetId: s.selectedAgentTargetId,
+      agentTargetId: s.agentTargetId || '',
       agentProvider: s.agentProvider || '',
       agentSessionId: s.agentSessionId || '',
       agentResumeToken: s.agentResumeToken || '',
@@ -758,24 +768,39 @@ class Component extends DCLogic {
       if(objUrl) setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
     }
   };
-  loadAgentProviders = async () => {
+  loadAgentTargets = async () => {
     this.setState({ agentsLoading:true });
     try {
       const resp = await fetch('/api/agents');
       const data = await resp.json().catch(() => ({}));
       if(!resp.ok) throw new Error(data.error || 'failed to load agents');
-      const providers = Array.isArray(data.providers) ? data.providers : [];
-      const providerIds = providers.map(p => p && p.provider).filter(Boolean);
-      const current = providerIds.indexOf(this.state.selectedProvider) >= 0 ? this.state.selectedProvider : '';
-      const selected = current || data.defaultProvider || providerIds[0] || '';
-      this.setState({ agentProviders: providers, selectedProvider: selected, agentsLoading:false });
+      const agents = Array.isArray(data.agents) ? data.agents : [];
+      const agentTargetIds = agents.map(agent => agent && agent.agentTargetId).filter(Boolean);
+      const current = agentTargetIds.indexOf(this.state.selectedAgentTargetId) >= 0 ? this.state.selectedAgentTargetId : '';
+      const legacyProvider = this.state.legacySelectedProvider;
+      const legacyMatches = legacyProvider
+        ? agents.filter(agent => agent && agent.providerId === this.state.legacySelectedProvider)
+        : [];
+      const migrated = legacyMatches.length === 1 ? legacyMatches[0].agentTargetId : '';
+      const staleExactTarget = this.state.selectedAgentTargetId && !current;
+      const ambiguousLegacy = legacyProvider && legacyMatches.length !== 1;
+      const selectionError = staleExactTarget || ambiguousLegacy
+        ? this.tt('input.agentSelectionStale')
+        : '';
+      const selected = selectionError ? '' : (current || migrated || data.defaultAgentTargetId || agentTargetIds[0] || '');
+      this.setState({ agentTargets: agents, defaultAgentTargetId:data.defaultAgentTargetId || agentTargetIds[0] || '', selectedAgentTargetId: selected, legacySelectedProvider:'', agentSelectionError:selectionError, agentsLoading:false });
     } catch(err){
-      this.setState({ agentProviders: [], agentsLoading:false });
+      this.setState({ agentTargets: [], agentsLoading:false });
     }
   };
-  onProvider = (e) => this.setState({ selectedProvider: e.target.value });
-  pickProvider = (provider) => this.setState({ selectedProvider: provider });
-  agentRequestOptions = () => this.state.selectedProvider ? { provider: this.state.selectedProvider } : {};
+  onAgentTarget = (e) => this.setState({ selectedAgentTargetId: e.target.value, agentSelectionError:'' });
+  pickAgentTarget = (agentTargetId) => this.setState({ selectedAgentTargetId: agentTargetId, agentSelectionError:'' });
+  agentRequestOptions = () => {
+    if(this.state.agentSelectionError || !this.state.selectedAgentTargetId) {
+      throw new Error(this.state.agentSelectionError || this.tt('input.agentSelectionRequired'));
+    }
+    return { agentTargetId: this.state.selectedAgentTargetId };
+  };
   startCompletionJob = async (payload) => {
     const resp = await fetch('/api/completions', {
       method:'POST',
@@ -799,6 +824,7 @@ class Component extends DCLogic {
       const job = await this.readCompletionJob(id);
       if(job && job.status === 'done') {
         this._lastAgentProvider = (job.result && job.result.agentProvider) || '';
+        this._lastAgentTargetId = (job.result && job.result.agentTargetId) || '';
         this._lastAgentSessionId = (job.result && job.result.agentSessionId) || '';
         this._lastAgentResumeToken = (job.result && job.result.resumeToken) || '';
         return (job.result && job.result.text) || '';
@@ -832,7 +858,8 @@ class Component extends DCLogic {
         result,
         error:'',
         reviewJobId:'',
-        agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+        agentProvider: this._lastAgentProvider || '',
+        agentTargetId: this._lastAgentTargetId || this.state.selectedAgentTargetId || '',
         agentSessionId: this._lastAgentSessionId || '',
         agentResumeToken: this._lastAgentResumeToken || ''
       });
@@ -1324,6 +1351,7 @@ this.subjectPlaceholder()
     const runToken = Date.now() + ':' + Math.random().toString(36).slice(2);
     this._activeRunToken = runToken;
     this._lastAgentProvider = '';
+    this._lastAgentTargetId = '';
     this._lastAgentSessionId = '';
     this._lastAgentResumeToken = '';
     await this.setStateAsync({
@@ -1338,6 +1366,8 @@ this.subjectPlaceholder()
       markerJobId:'',
       markers:[],
       hiddenMarkers:{},
+      agentTargetId:'',
+      agentProvider:'',
       agentSessionId:'',
       agentResumeToken:''
     });
@@ -1381,7 +1411,8 @@ this.subjectPlaceholder()
           markers: Array.isArray(result.markers) ? result.markers : [],
           hiddenMarkers:{},
           reviewJobId:'',
-          agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+          agentProvider: this._lastAgentProvider || '',
+          agentTargetId: this._lastAgentTargetId || this.state.selectedAgentTargetId || '',
           agentSessionId: this._lastAgentSessionId || '',
           agentResumeToken: this._lastAgentResumeToken || ''
         });
@@ -1419,7 +1450,8 @@ this.subjectPlaceholder()
         status:'done',
         result,
         reviewJobId:'',
-        agentProvider: this._lastAgentProvider || this.state.selectedProvider || '',
+        agentProvider: this._lastAgentProvider || '',
+        agentTargetId: this._lastAgentTargetId || this.state.selectedAgentTargetId || '',
         agentSessionId: this._lastAgentSessionId || '',
         agentResumeToken: this._lastAgentResumeToken || ''
       });
@@ -1496,6 +1528,9 @@ this.subjectPlaceholder()
       markers:[],
       hiddenMarkers:{},
       reviewJobId:'',
+      selectedAgentTargetId:this.state.defaultAgentTargetId || '',
+      agentSelectionError:'',
+      agentTargetId:'',
       agentProvider:'',
       agentSessionId:'',
       agentResumeToken:''
@@ -1618,17 +1653,17 @@ this.subjectPlaceholder()
       onUrl: this.onUrl, onJson: this.onJson, jsonText: s.jsonText,
       renderJson: this.renderJson, copyPrompt: this.copyPrompt,
       promptText: this.getExternalPrompt(),
-      selectedProvider: s.selectedProvider,
-      onProvider: this.onProvider,
-      hasProviderChoices: Array.isArray(s.agentProviders) && s.agentProviders.length > 1,
-      agentProviderHint: T('input.agentProviderHint'),
-      providerChoices: (s.agentProviders || []).map((p) => {
-        const selected = p.provider === s.selectedProvider;
+      selectedAgentTargetId: s.selectedAgentTargetId,
+      onAgentTarget: this.onAgentTarget,
+      hasProviderChoices: Boolean(s.agentSelectionError) || (Array.isArray(s.agentTargets) && s.agentTargets.length > 1),
+      agentProviderHint: s.agentSelectionError || T('input.agentProviderHint'),
+      agentChoices: (s.agentTargets || []).map((p) => {
+        const selected = p.agentTargetId === s.selectedAgentTargetId;
         return {
-          provider: p.provider,
-          label: p.label || p.provider,
+          agentTargetId: p.agentTargetId,
+          label: p.label || p.agentTargetId,
           selected,
-          onSelect: () => this.pickProvider(p.provider),
+          onSelect: () => this.pickAgentTarget(p.agentTargetId),
           bg: selected ? '#16140F' : 'var(--surface)',
           fg: selected ? '#F7F3EC' : 'var(--ink)',
           border: selected ? '#16140F' : 'var(--ink)',

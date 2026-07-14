@@ -14,7 +14,7 @@ const packageFiles = [
   "icon.svg",
   "bootstrap.sh",
 ];
-const packageDirs = ["static", "locales", "docs"];
+const packageDirs = ["static", "locales"];
 
 await run("pnpm", ["build"], rootDir);
 await rm(buildRoot, { recursive: true, force: true });

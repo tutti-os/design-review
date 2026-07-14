@@ -35,5 +35,5 @@ logs/
 # Built publishable package
 build/
 
-# Local dev scratch (scripts/dev.py writes data/logs/runtime here)
+# Local development scratch
 .dev/

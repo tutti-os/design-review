@@ -152,8 +152,10 @@ pnpm package:tutti
 ```
 
 This runs `pnpm build`, copies the bundled Node server plus static assets,
-manifests, docs, icon, and locale files into `build/tutti-app/package`, marks
-`bootstrap.sh` executable, and runs the Tutti factory validator.
+manifests, current agent-facing docs (`AGENTS.md` and `COMMANDS.md`), icon, and
+locale files into `build/tutti-app/package`, marks `bootstrap.sh` executable,
+and runs the Tutti factory validator. Historical migration plans stay in the
+source repository and are not included in the published package.
 
 ## Validation
 

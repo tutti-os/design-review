@@ -53,7 +53,7 @@ export async function runLocalAgentCompletion(
     );
     agentTargetId = target.agentTargetId;
     provider = target.providerId;
-    const cwd = input.config.workspaceRoot ?? input.runDir;
+    const cwd = input.runDir;
     const [composer, skillContext] = await abortOnSignal(
       Promise.all([
         loadTuttiAgentComposerOptions({
@@ -106,7 +106,6 @@ export async function runLocalAgentCompletion(
         input.runDir,
         input.config.runtimeDir,
         input.config.dataDir,
-        ...(input.config.workspaceRoot ? [input.config.workspaceRoot] : []),
       ],
       signal: controller.signal,
       skillManifest: skillContext.skillManifest,

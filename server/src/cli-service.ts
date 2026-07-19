@@ -56,7 +56,6 @@ export async function cliReview(config: RuntimeConfig, payload: unknown) {
   }
   if (imagePath) {
     imagePath = await validateImagePath(imagePath, [
-      ...(config.workspaceRoot ? [config.workspaceRoot] : []),
       config.runtimeDir,
       config.dataDir,
     ]);

@@ -19,7 +19,7 @@
           },
           "image-path": {
             "type": "string",
-            "description": "Absolute path to a local screenshot/design image to review. Provide either url or image-path."
+            "description": "Absolute path to a screenshot/design image already staged under this app's TUTTI_APP_RUNTIME_DIR or TUTTI_APP_DATA_DIR. Arbitrary host/workspace paths are rejected. Provide either url or image-path."
           },
           "strictness": {
             "type": "string",

@@ -1,4 +1,4 @@
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -38,9 +38,9 @@ export async function validateImagePath(imagePath: string, allowedRoots: string[
     .catch((error) => {
       throw new BadRequestError(`image-path not found: ${imagePath}`, { cause: error });
     });
-  const resolvedRoots = allowedRoots.map((root) => path.resolve(root));
+  const resolvedRoots = await Promise.all(allowedRoots.map((root) => realpath(root)));
   if (!resolvedRoots.some((root) => real === root || real.startsWith(`${root}${path.sep}`))) {
-    throw new BadRequestError("image-path is outside the allowed workspace/runtime/data directories.");
+    throw new BadRequestError("image-path is outside the allowed runtime/data directories.");
   }
   const info = await stat(real);
   if (!info.isFile()) throw new BadRequestError(`image-path not found: ${imagePath}`);
@@ -48,4 +48,3 @@ export async function validateImagePath(imagePath: string, allowedRoots: string[
   if (info.size > MAX_IMAGE_BYTES) throw new BadRequestError("image-path is too large (max 20 MiB).");
   return real;
 }
-

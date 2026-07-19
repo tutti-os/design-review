@@ -19,7 +19,6 @@ const config = {
   port: 8799,
   runtimeDir: "/tmp/design-review-test/runtime",
   staticDir: "/tmp/design-review-test/static",
-  workspaceRoot: null,
 } satisfies RuntimeConfig;
 
 test("completion rejects non-string exact agent target ids", async () => {

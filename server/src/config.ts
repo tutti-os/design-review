@@ -17,7 +17,6 @@ export type RuntimeConfig = {
   port: number;
   runtimeDir: string;
   staticDir: string;
-  workspaceRoot: string | null;
 };
 
 export async function createRuntimeConfig(): Promise<RuntimeConfig> {
@@ -53,7 +52,5 @@ export async function createRuntimeConfig(): Promise<RuntimeConfig> {
     port: Number(process.env.TUTTI_APP_PORT ?? "8799"),
     runtimeDir,
     staticDir: path.join(packageDir, "static"),
-    workspaceRoot: process.env.TUTTI_WORKSPACE_ROOT?.trim() || null,
   };
 }
-

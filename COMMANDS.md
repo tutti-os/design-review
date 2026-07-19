@@ -27,8 +27,9 @@ brand fit, conversion/CTA.
 Inputs:
 
 - `--url <string>` — website URL to review.
-- `--image-path <string>` — absolute path to a local screenshot/design image
-  under the workspace/runtime/data directory.
+- `--image-path <string>` — absolute path to a screenshot/design image already
+  staged under this app's `TUTTI_APP_RUNTIME_DIR` or `TUTTI_APP_DATA_DIR`.
+  Arbitrary host/workspace paths are rejected.
 - `--strictness <string>` — `relaxed` | `standard` | `strict`; Chinese
   `宽松` | `标准` | `严苛` are also accepted.
 - `--locale <string>` — output language, e.g. `zh-CN` or `en`.
@@ -66,13 +67,16 @@ Examples:
 
 ```sh
 "$TUTTI_CLI" --json design-review review --url "https://example.com" --locale en
-"$TUTTI_CLI" --json design-review review --image-path "/abs/path/to/screen.png" --strictness strict
+"$TUTTI_CLI" --json design-review review --image-path "$TUTTI_APP_RUNTIME_DIR/uploads/screen.png" --strictness strict
 "$TUTTI_CLI" --json design-review review --url "https://example.com" --agent-id "<agent-target-id>"
 ```
 
 Notes:
 
 - The handler timeout is 290s; the app caps agent work below that.
+- Image-path reviews consume staged app input. Use the app upload flow (or another
+  trusted app-runtime integration) to place the image under the app runtime/data
+  directory before invoking the CLI command.
 - URL reviews ask the local agent to fetch the live page with its available tools.
   If the page is unreachable, the agent should report `overall: 0` instead of
   guessing.

@@ -46,7 +46,6 @@ Environment variables:
 - `TUTTI_APP_RUNTIME_DIR` — scratch/runtime files; uploaded images and run dirs go here.
 - `TUTTI_APP_LOG_DIR` — backend logs.
 - `TUTTI_APP_NODE` — managed Node executable used by `bootstrap.sh`.
-- `TUTTI_WORKSPACE_ROOT` — optional workspace path used as the agent cwd when present.
 
 No startup-time install is allowed. `bootstrap.sh` only launches the prepared
 server bundle.
@@ -55,11 +54,10 @@ Local run:
 
 ```sh
 RUN="$(mktemp -d)"
-WORKSPACE_ROOT="$(cd .. && pwd)"
 pnpm build
 TUTTI_APP_PACKAGE_DIR="$PWD" TUTTI_APP_HOST=127.0.0.1 TUTTI_APP_PORT=8799 \
 TUTTI_APP_DATA_DIR="$RUN/data" TUTTI_APP_LOG_DIR="$RUN/logs" \
-TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_WORKSPACE_ROOT="$WORKSPACE_ROOT" \
+TUTTI_APP_RUNTIME_DIR="$RUN/runtime" \
 TUTTI_APP_NODE="$(command -v node)" ./bootstrap.sh
 ```
 
@@ -67,10 +65,9 @@ Development run:
 
 ```sh
 RUN="$(mktemp -d)"
-WORKSPACE_ROOT="$(cd .. && pwd)"
 TUTTI_APP_PACKAGE_DIR="$PWD" TUTTI_APP_HOST=127.0.0.1 TUTTI_APP_PORT=8799 \
 TUTTI_APP_DATA_DIR="$RUN/data" TUTTI_APP_LOG_DIR="$RUN/logs" \
-TUTTI_APP_RUNTIME_DIR="$RUN/runtime" TUTTI_WORKSPACE_ROOT="$WORKSPACE_ROOT" \
+TUTTI_APP_RUNTIME_DIR="$RUN/runtime" \
 pnpm dev
 ```
 
@@ -118,11 +115,15 @@ Other Tutti apps and agents can call:
 ```sh
 "$TUTTI_CLI" --json design-review status
 "$TUTTI_CLI" --json design-review review --url https://example.com --locale en
-"$TUTTI_CLI" --json design-review review --image-path /abs/screen.png --strictness strict
+"$TUTTI_CLI" --json design-review review --image-path "$TUTTI_APP_RUNTIME_DIR/uploads/screen.png" --strictness strict
 "$TUTTI_CLI" --json design-review review --url https://example.com --agent-id "<agent-target-id>"
 "$TUTTI_CLI" --json design-review history --limit 20
 "$TUTTI_CLI" --json design-review export --id <review-id> --format md
 ```
+
+`--image-path` is a staged-input contract: the image must already be under this
+app's `TUTTI_APP_RUNTIME_DIR` or `TUTTI_APP_DATA_DIR`. Arbitrary host/workspace
+paths are rejected.
 
 ## Internationalization
 
